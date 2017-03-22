@@ -111,6 +111,7 @@ class HashArrayMappedTrie {
 
   struct EntryNode {
     bool is_entry;
+    BitmapIndexedNode *parent;
 
     union {
       struct {
@@ -178,10 +179,6 @@ class HashArrayMappedTrie {
       _base = hamt->allocator.alloc(capacity, level);
       return _base;
     } 
-
-    void Free(HashArrayMappedTrie *hamt) {
-      hamt->allocator._free(_base);
-    }
 
     uint32_t size() const { return __builtin_popcount(_bitmap); }
 
@@ -286,52 +283,105 @@ class HashArrayMappedTrie {
     }
   };
 
-  class Allocator {
-   public:
-     EntryNode *buffer;
-     EntryNode *cursor;
-     std::deque<EntryNode *> free_lists[33];
-     size_t _total_allocated;
-     size_t _total_in_free_lists;
+  class MemoryBlock {
+   private:
+    EntryNode *_ptr;
+    EntryNode *_cursor;
+    size_t _size;
+    size_t _used;
 
-   Allocator() : _total_allocated(0), _total_in_free_lists(0) {
-      /* buffer = static_cast<EntryNode *>(malloc(65536 * sizeof(EntryNode))); */
-      cursor = buffer;
+   public:
+    MemoryBlock(EntryNode *ptr, size_t size)
+      : _ptr(ptr), _cursor(ptr), _size(size), _used(0) {}
+
+    EntryNode *allocFragment(size_t fragment_size) {
+      /* printf("- %zu\n", fragment_size); */
+      if (_cursor + fragment_size <= _ptr + _size) {
+        auto fragment = _cursor;
+        _cursor += fragment_size;
+        _used += fragment_size;
+        return fragment;
+      }
+
+      return nullptr;
     }
 
-    void dump() {
-      size_t sum = 0;
-      for (uint32_t i = 1; i <= 32; i++) {
-        size_t s = free_lists[i].size();
-        if (s) {
-          /* printf("%d:%zu ", i, s); */
-          sum += i * s;
+    bool freeFragment(const EntryNode *fragment, size_t fragment_size) {
+      if (fragment >= _ptr && fragment < _ptr + _size) {
+        _used -= fragment_size;
+        assert(_used < _size && "Unexpected integer overflow");
+        if (_used == 0) {
+          free(_ptr);
+          _ptr = nullptr;
+        }
+        return true;
+      }
+      return false;
+    }
+
+    bool empty() const { return _ptr == nullptr; }
+    size_t size() const { return _ptr ? _size : 0; }
+    size_t used() const { return _used; }
+  };
+
+  class Allocator {
+   private:
+    std::deque<MemoryBlock> _blocks;
+    size_t _next_block_size;
+
+   public:
+    Allocator() : _next_block_size(1) {}
+
+    EntryNode *alloc(uint32_t fragment_size, uint32_t level) {
+      for (size_t i = 0;;) {
+        for (; i < _blocks.size(); i++) {
+          auto fragment = _blocks[i].allocFragment(fragment_size);
+          if (fragment != nullptr) {
+            return fragment;
+          }
+        }
+
+        // Allocate another block and keep looking for block that fits the fragment
+        auto ptr = (EntryNode *)malloc(_next_block_size * sizeof(EntryNode));
+        if (ptr == nullptr) {
+          return nullptr;
+        }
+        _blocks.push_back(MemoryBlock(ptr, _next_block_size));
+        _next_block_size *= 2;
+
+        assert(i + 1 == _blocks.size());
+      }
+
+      return nullptr;
+    }
+
+    void _free(EntryNode *ptr, uint32_t fragment_size, uint32_t level) {
+      // Look for the block that contains the fragment and free it
+      for (auto& block : _blocks) {
+        if (block.freeFragment(ptr, fragment_size)) {
+          break;
         }
       }
-      /* printf(" (%zu/%zu -- %.2lf%% wasted)", sum, _total_allocated, (double)(sum * 100) / _total_allocated); */
-      /* putchar('\n'); */
-    }
-
-    EntryNode *alloc(uint32_t n, uint32_t level) {
-      /* printf("alloc: %d\n", n); */
-      if (!free_lists[n].empty()) {
-        auto ptr = free_lists[n].front();
-        free_lists[n].pop_front();
-        _total_in_free_lists -= n;
-        dump();
-        return ptr;
+      // Remove empty blocks from the front of the deque
+      while (!_blocks.empty()) {
+        auto block = _blocks.front();
+        if (block.empty()) {
+          _blocks.pop_front();
+        } else {
+          break;
+        }
       }
-
-      _total_allocated += n;
-      return static_cast<EntryNode *>(malloc(n * sizeof(EntryNode)));
     }
 
-    void _free(EntryNode *ptr, uint32_t n, uint32_t level) {
-      /* printf(" free: %d\n", n); */
-      free_lists[n].push_back(ptr);
-      _total_in_free_lists += n;
-      dump();
-      /* free(ptr); */
+    void dump(size_t n) {
+      size_t allocated = 0;
+      size_t active = 0;
+      for (auto block : _blocks) {
+        printf("%zu (%zu)\n", block.size(), block.used());
+        allocated += block.size();
+        active += block.used();
+      }
+      printf("%zu, %zu, %zu\n", n, allocated, active);
     }
   };
 
@@ -513,7 +563,8 @@ class HashArrayMappedTrie {
   }
 
   void print() {
-    printf("%zu, %zu, %zu\n", _count, allocator._total_allocated, allocator._total_in_free_lists);
+    allocator.dump(_count);
+    /* printf("%zu, %zu, %zu\n", _count, allocator._total_allocated, allocator._total_in_free_lists); */
   }
 
   Allocator allocator;
