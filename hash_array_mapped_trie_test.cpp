@@ -3,6 +3,8 @@
 
 #include <gtest/gtest.h>
 
+#define GTEST
+
 #include "hash_array_mapped_trie.h"
 
 using foc::HashArrayMappedTrie;
@@ -18,164 +20,166 @@ class HashArrayMappedTrieTest : public testing::Test {
   }
 };
 
+/*
 TEST_F(HashArrayMappedTrieTest, LogicalToPhysicalIndexTranslationTest) {
-  HAMT::BitmapIndexedNode node;
+  HAMT::BitmapTrie trie;
 
   // All items will be stored at index=0 if the bitmap is empty
-  node._bitmap = 0; // 0000
+  trie._bitmap = 0; // 0000
   for (int i = 0; i < 32; i++) {
-    EXPECT_EQ(node.physical_index(i), 0);
+    EXPECT_EQ(trie.physicalIndex(i), 0);
   }
   // For any bitmap, the logical index 0 will map to physical index 0.
   // (we test all bitmaps that contain a single bit)
   for (int i = 0; i < 32; i++) {
-    node._bitmap = 0x1 << i;
-    EXPECT_EQ(node.physical_index(0), 0);
+    trie._bitmap = 0x1 << i;
+    EXPECT_EQ(trie.physicalIndex(0), 0);
   }
 
-  node._bitmap = 1; // 0001
-  EXPECT_EQ(node.physical_index(1), 1);
-  EXPECT_EQ(node.physical_index(2), 1);
-  EXPECT_EQ(node.physical_index(3), 1);
-  EXPECT_EQ(node.physical_index(4), 1);
-  EXPECT_EQ(node.physical_index(5), 1);
-  EXPECT_EQ(node.physical_index(31), 1);
-  node._bitmap = 2; // 0010
-  EXPECT_EQ(node.physical_index(1), 0);
-  EXPECT_EQ(node.physical_index(2), 1);
-  EXPECT_EQ(node.physical_index(3), 1);
-  EXPECT_EQ(node.physical_index(4), 1);
-  EXPECT_EQ(node.physical_index(5), 1);
-  EXPECT_EQ(node.physical_index(31), 1);
-  node._bitmap = 3; // 0011
-  EXPECT_EQ(node.physical_index(1), 1);
-  EXPECT_EQ(node.physical_index(2), 2);
-  EXPECT_EQ(node.physical_index(3), 2);
-  EXPECT_EQ(node.physical_index(4), 2);
-  EXPECT_EQ(node.physical_index(5), 2);
-  EXPECT_EQ(node.physical_index(31), 2);
-  node._bitmap = 4; // 0100
-  EXPECT_EQ(node.physical_index(1), 0);
-  EXPECT_EQ(node.physical_index(2), 0);
-  EXPECT_EQ(node.physical_index(3), 1);
-  EXPECT_EQ(node.physical_index(4), 1);
-  EXPECT_EQ(node.physical_index(5), 1);
-  EXPECT_EQ(node.physical_index(31), 1);
-  node._bitmap = 5; // 0101
-  EXPECT_EQ(node.physical_index(1), 1);
-  EXPECT_EQ(node.physical_index(2), 1);
-  EXPECT_EQ(node.physical_index(3), 2);
-  EXPECT_EQ(node.physical_index(4), 2);
-  EXPECT_EQ(node.physical_index(5), 2);
-  EXPECT_EQ(node.physical_index(31), 2);
-  node._bitmap = 6; // 0110
-  EXPECT_EQ(node.physical_index(1), 0);
-  EXPECT_EQ(node.physical_index(2), 1);
-  EXPECT_EQ(node.physical_index(3), 2);
-  EXPECT_EQ(node.physical_index(4), 2);
-  EXPECT_EQ(node.physical_index(5), 2);
-  EXPECT_EQ(node.physical_index(31), 2);
-  node._bitmap = 7; // 0111
-  EXPECT_EQ(node.physical_index(1), 1);
-  EXPECT_EQ(node.physical_index(2), 2);
-  EXPECT_EQ(node.physical_index(3), 3);
-  EXPECT_EQ(node.physical_index(4), 3);
-  EXPECT_EQ(node.physical_index(5), 3);
-  EXPECT_EQ(node.physical_index(31), 3);
+  trie._bitmap = 1; // 0001
+  EXPECT_EQ(trie.physicalIndex(1), 1);
+  EXPECT_EQ(trie.physicalIndex(2), 1);
+  EXPECT_EQ(trie.physicalIndex(3), 1);
+  EXPECT_EQ(trie.physicalIndex(4), 1);
+  EXPECT_EQ(trie.physicalIndex(5), 1);
+  EXPECT_EQ(trie.physicalIndex(31), 1);
+  trie._bitmap = 2; // 0010
+  EXPECT_EQ(trie.physicalIndex(1), 0);
+  EXPECT_EQ(trie.physicalIndex(2), 1);
+  EXPECT_EQ(trie.physicalIndex(3), 1);
+  EXPECT_EQ(trie.physicalIndex(4), 1);
+  EXPECT_EQ(trie.physicalIndex(5), 1);
+  EXPECT_EQ(trie.physicalIndex(31), 1);
+  trie._bitmap = 3; // 0011
+  EXPECT_EQ(trie.physicalIndex(1), 1);
+  EXPECT_EQ(trie.physicalIndex(2), 2);
+  EXPECT_EQ(trie.physicalIndex(3), 2);
+  EXPECT_EQ(trie.physicalIndex(4), 2);
+  EXPECT_EQ(trie.physicalIndex(5), 2);
+  EXPECT_EQ(trie.physicalIndex(31), 2);
+  trie._bitmap = 4; // 0100
+  EXPECT_EQ(trie.physicalIndex(1), 0);
+  EXPECT_EQ(trie.physicalIndex(2), 0);
+  EXPECT_EQ(trie.physicalIndex(3), 1);
+  EXPECT_EQ(trie.physicalIndex(4), 1);
+  EXPECT_EQ(trie.physicalIndex(5), 1);
+  EXPECT_EQ(trie.physicalIndex(31), 1);
+  trie._bitmap = 5; // 0101
+  EXPECT_EQ(trie.physicalIndex(1), 1);
+  EXPECT_EQ(trie.physicalIndex(2), 1);
+  EXPECT_EQ(trie.physicalIndex(3), 2);
+  EXPECT_EQ(trie.physicalIndex(4), 2);
+  EXPECT_EQ(trie.physicalIndex(5), 2);
+  EXPECT_EQ(trie.physicalIndex(31), 2);
+  trie._bitmap = 6; // 0110
+  EXPECT_EQ(trie.physicalIndex(1), 0);
+  EXPECT_EQ(trie.physicalIndex(2), 1);
+  EXPECT_EQ(trie.physicalIndex(3), 2);
+  EXPECT_EQ(trie.physicalIndex(4), 2);
+  EXPECT_EQ(trie.physicalIndex(5), 2);
+  EXPECT_EQ(trie.physicalIndex(31), 2);
+  trie._bitmap = 7; // 0111
+  EXPECT_EQ(trie.physicalIndex(1), 1);
+  EXPECT_EQ(trie.physicalIndex(2), 2);
+  EXPECT_EQ(trie.physicalIndex(3), 3);
+  EXPECT_EQ(trie.physicalIndex(4), 3);
+  EXPECT_EQ(trie.physicalIndex(5), 3);
+  EXPECT_EQ(trie.physicalIndex(31), 3);
 }
 
 TEST_F(HashArrayMappedTrieTest, BitmapIndexedNodeInsertionTest) {
   HAMT hamt;
-  HAMT::BitmapIndexedNode node;
-  node.Initialize(&hamt, 1, 0, 0);
+  HAMT::BitmapTrie trie;
+  trie.Initialize(&hamt, 1, 0, 0);
 
-  auto e = node.Insert(&hamt, 4, 40, 4, 0);
-  EXPECT_EQ(node._bitmap, 16); // 010000
-  EXPECT_EQ(node.size(), 1);
-  EXPECT_EQ(node._base[0].entry().key, 40);
-  EXPECT_EQ(node._base[0].entry().value, 4);
+  auto e = trie.insert(&hamt, 4, 40, 4, 0);
+  EXPECT_EQ(trie._bitmap, 16); // 010000
+  EXPECT_EQ(trie.size(), 1);
+  EXPECT_EQ(trie._base[0].asEntry().key, 40);
+  EXPECT_EQ(trie._base[0].asEntry().value, 4);
 
-  e = node.Insert(&hamt, 2, 20, 2, 0);
-  EXPECT_EQ(node._bitmap, 20); // 010100
-  EXPECT_EQ(node.size(), 2);
-  EXPECT_EQ(node._base[0].entry().key, 20);
-  EXPECT_EQ(node._base[0].entry().value, 2);
-  EXPECT_EQ(node._base[1].entry().key, 40);
-  EXPECT_EQ(node._base[1].entry().value, 4);
+  e = trie.insert(&hamt, 2, 20, 2, 0);
+  EXPECT_EQ(trie._bitmap, 20); // 010100
+  EXPECT_EQ(trie.size(), 2);
+  EXPECT_EQ(trie._base[0].asEntry().key, 20);
+  EXPECT_EQ(trie._base[0].asEntry().value, 2);
+  EXPECT_EQ(trie._base[1].asEntry().key, 40);
+  EXPECT_EQ(trie._base[1].asEntry().value, 4);
 
-  e = node.Insert(&hamt, 3, 30, 3, 0);
-  EXPECT_EQ(node._bitmap, 28); // 011100
-  EXPECT_EQ(node.size(), 3);
-  EXPECT_EQ(node._base[0].entry().key, 20);
-  EXPECT_EQ(node._base[0].entry().value, 2);
-  EXPECT_EQ(node._base[1].entry().key, 30);
-  EXPECT_EQ(node._base[1].entry().value, 3);
-  EXPECT_EQ(node._base[2].entry().key, 40);
-  EXPECT_EQ(node._base[2].entry().value, 4);
+  e = trie.insert(&hamt, 3, 30, 3, 0);
+  EXPECT_EQ(trie._bitmap, 28); // 011100
+  EXPECT_EQ(trie.size(), 3);
+  EXPECT_EQ(trie._base[0].asEntry().key, 20);
+  EXPECT_EQ(trie._base[0].asEntry().value, 2);
+  EXPECT_EQ(trie._base[1].asEntry().key, 30);
+  EXPECT_EQ(trie._base[1].asEntry().value, 3);
+  EXPECT_EQ(trie._base[2].asEntry().key, 40);
+  EXPECT_EQ(trie._base[2].asEntry().value, 4);
 
-  e = node.Insert(&hamt, 0, 0, 0, 0);
-  EXPECT_EQ(node._bitmap, 29); // 011101
-  EXPECT_EQ(node.size(), 4);
-  EXPECT_EQ(node._base[0].entry().key, 0);
-  EXPECT_EQ(node._base[0].entry().value, 0);
-  EXPECT_EQ(node._base[1].entry().key, 20);
-  EXPECT_EQ(node._base[1].entry().value, 2);
-  EXPECT_EQ(node._base[2].entry().key, 30);
-  EXPECT_EQ(node._base[2].entry().value, 3);
-  EXPECT_EQ(node._base[3].entry().key, 40);
-  EXPECT_EQ(node._base[3].entry().value, 4);
+  e = trie.insert(&hamt, 0, 0, 0, 0);
+  EXPECT_EQ(trie._bitmap, 29); // 011101
+  EXPECT_EQ(trie.size(), 4);
+  EXPECT_EQ(trie._base[0].asEntry().key, 0);
+  EXPECT_EQ(trie._base[0].asEntry().value, 0);
+  EXPECT_EQ(trie._base[1].asEntry().key, 20);
+  EXPECT_EQ(trie._base[1].asEntry().value, 2);
+  EXPECT_EQ(trie._base[2].asEntry().key, 30);
+  EXPECT_EQ(trie._base[2].asEntry().value, 3);
+  EXPECT_EQ(trie._base[3].asEntry().key, 40);
+  EXPECT_EQ(trie._base[3].asEntry().value, 4);
 
-  e = node.Insert(&hamt, 5, 50, 5, 0);
-  EXPECT_EQ(node._bitmap, 61); // 111101
-  EXPECT_EQ(node.size(), 5);
-  EXPECT_EQ(node._base[0].entry().key, 0);
-  EXPECT_EQ(node._base[0].entry().value, 0);
-  EXPECT_EQ(node._base[1].entry().key, 20);
-  EXPECT_EQ(node._base[1].entry().value, 2);
-  EXPECT_EQ(node._base[2].entry().key, 30);
-  EXPECT_EQ(node._base[2].entry().value, 3);
-  EXPECT_EQ(node._base[3].entry().key, 40);
-  EXPECT_EQ(node._base[3].entry().value, 4);
-  EXPECT_EQ(node._base[4].entry().key, 50);
-  EXPECT_EQ(node._base[4].entry().value, 5);
+  e = trie.insert(&hamt, 5, 50, 5, 0);
+  EXPECT_EQ(trie._bitmap, 61); // 111101
+  EXPECT_EQ(trie.size(), 5);
+  EXPECT_EQ(trie._base[0].asEntry().key, 0);
+  EXPECT_EQ(trie._base[0].asEntry().value, 0);
+  EXPECT_EQ(trie._base[1].asEntry().key, 20);
+  EXPECT_EQ(trie._base[1].asEntry().value, 2);
+  EXPECT_EQ(trie._base[2].asEntry().key, 30);
+  EXPECT_EQ(trie._base[2].asEntry().value, 3);
+  EXPECT_EQ(trie._base[3].asEntry().key, 40);
+  EXPECT_EQ(trie._base[3].asEntry().value, 4);
+  EXPECT_EQ(trie._base[4].asEntry().key, 50);
+  EXPECT_EQ(trie._base[4].asEntry().value, 5);
 
-  e = node.Insert(&hamt, 1, 10, 1, 0);
-  EXPECT_EQ(node._bitmap, 63); // 111111
-  EXPECT_EQ(node.size(), 6);
-  EXPECT_EQ(node._base[0].entry().key, 0);
-  EXPECT_EQ(node._base[0].entry().value, 0);
-  EXPECT_EQ(node._base[1].entry().key, 10);
-  EXPECT_EQ(node._base[1].entry().value, 1);
-  EXPECT_EQ(node._base[2].entry().key, 20);
-  EXPECT_EQ(node._base[2].entry().value, 2);
-  EXPECT_EQ(node._base[3].entry().key, 30);
-  EXPECT_EQ(node._base[3].entry().value, 3);
-  EXPECT_EQ(node._base[4].entry().key, 40);
-  EXPECT_EQ(node._base[4].entry().value, 4);
-  EXPECT_EQ(node._base[5].entry().key, 50);
-  EXPECT_EQ(node._base[5].entry().value, 5);
+  e = trie.insert(&hamt, 1, 10, 1, 0);
+  EXPECT_EQ(trie._bitmap, 63); // 111111
+  EXPECT_EQ(trie.size(), 6);
+  EXPECT_EQ(trie._base[0].asEntry().key, 0);
+  EXPECT_EQ(trie._base[0].asEntry().value, 0);
+  EXPECT_EQ(trie._base[1].asEntry().key, 10);
+  EXPECT_EQ(trie._base[1].asEntry().value, 1);
+  EXPECT_EQ(trie._base[2].asEntry().key, 20);
+  EXPECT_EQ(trie._base[2].asEntry().value, 2);
+  EXPECT_EQ(trie._base[3].asEntry().key, 30);
+  EXPECT_EQ(trie._base[3].asEntry().value, 3);
+  EXPECT_EQ(trie._base[4].asEntry().key, 40);
+  EXPECT_EQ(trie._base[4].asEntry().value, 4);
+  EXPECT_EQ(trie._base[5].asEntry().key, 50);
+  EXPECT_EQ(trie._base[5].asEntry().value, 5);
 
-  e = node.Insert(&hamt, 31, 310, 31, 0);
-  EXPECT_EQ(node._bitmap, 63 | (0x1 << 31));
-  EXPECT_EQ(node.size(), 7);
-  EXPECT_EQ(node._base[6].entry().key, 310);
-  EXPECT_EQ(node._base[6].entry().value, 31);
+  e = trie.insert(&hamt, 31, 310, 31, 0);
+  EXPECT_EQ(trie._bitmap, 63 | (0x1 << 31));
+  EXPECT_EQ(trie.size(), 7);
+  EXPECT_EQ(trie._base[6].asEntry().key, 310);
+  EXPECT_EQ(trie._base[6].asEntry().value, 31);
 }
+*/
 
 void print_bitmap_indexed_node(
-    HAMT::BitmapIndexedNode &node,
+    HAMT::BitmapTrie &trie,
     std::string indent) {
-  std::vector<HAMT::BitmapIndexedNode *> nodes;
+  std::vector<HAMT::BitmapTrie *> tries;
 
-  printf("%3d/%-3d: %s", node.size(), node._capacity, indent.c_str());
+  printf("%3d/%-3d: %s", trie.size(), trie.capacity(), indent.c_str());
   for (int i = 0; i < 32; i++) {
-    if (node.position_occupied(i)) {
-      auto& entry_node = node[i];
-      if (entry_node.is_entry) {
-        printf("%3lld ", entry_node.entry().value);
+    if (trie.logicalPositionTaken(i)) {
+      auto& node = trie.logicalGet(i);
+      if (node.isEntry()) {
+        printf("%3lld ", node.asEntry().value);
       } else {
         printf("[ ] ");
-        nodes.push_back(&entry_node.node());
+        tries.push_back(&node.asTrie());
       }
     } else {
       printf("--- ");
@@ -183,34 +187,34 @@ void print_bitmap_indexed_node(
   }
   putchar('\n');
 
-  for (auto node : nodes) {
-    print_bitmap_indexed_node(*node, indent + "    ");
+  for (auto trie : tries) {
+    print_bitmap_indexed_node(*trie, indent + "    ");
   }
 }
 
 void print_hamt(HAMT &hamt) {
-  print_bitmap_indexed_node(hamt.root, "");
+  print_bitmap_indexed_node(hamt.root(), "");
   putchar('\n');
 }
 
 void print_stats(HAMT &hamt) {
-  std::queue<HAMT::BitmapIndexedNode *> q;
+  std::queue<HAMT::BitmapTrie *> q;
 
   int stats[33];
   memset(stats, 0, sizeof(stats));
 
-  q.push(&hamt.root);
+  q.push(&hamt.root());
   while (!q.empty()) {
-    auto node = q.front();
+    auto trie = q.front();
     q.pop();
 
-    stats[node->size()]++;
+    stats[trie->size()]++;
 
     for (int i = 0; i < 32; i++) {
-      if (node->position_occupied(i)) {
-        auto& entry_node = (*node)[i];
-        if (!entry_node.is_entry) {
-          q.push(&entry_node.node());
+      if (trie->logicalPositionTaken(i)) {
+        auto& node = trie->logicalGet(i);
+        if (!node.isEntry()) {
+          q.push(&node.asTrie());
         }
       }
     }
@@ -239,7 +243,7 @@ TEST_F(HashArrayMappedTrieTest, TopLevelInsertionTest) {
     HAMT hamt;
     for (int64_t i = 1; i <= max; i++) {
       /* printf("%d:\n", i * 10); */
-      hamt.Insert(i * 10, i);
+      hamt.insert(i * 10, i);
       if (__builtin_popcount(i) == 1) {
         hamt.print();
       }
@@ -250,7 +254,7 @@ TEST_F(HashArrayMappedTrieTest, TopLevelInsertionTest) {
     /* int64_t count_not_found = 0; */
     int64_t last_not_found = -1;
     for (int64_t i = 1; i <= max; i++) {
-      auto found = hamt.Find(i * 10);
+      auto found = hamt.find(i * 10);
       EXPECT_TRUE(found != nullptr);
       /*
       if (found == nullptr) {

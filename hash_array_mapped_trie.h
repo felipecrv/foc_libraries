@@ -142,100 +142,102 @@ class HashArrayMappedTrie {
   typedef detail::Entry<K, V> Entry;
 
   class Allocator;
-  class BitmapIndexedNode;
+  class BitmapTrie;
 
-  struct EntryNode {
-    bool is_entry;
-    BitmapIndexedNode *parent;
-
+  // A Node in the HAMT is a sum type of Entry and BitmapTrie (can be one or the other).
+  class Node {
+   private:
+    bool _is_entry;
+    BitmapTrie *_parent;
     union {
       struct {
         alignas(alignof(Entry)) char buffer[sizeof(Entry)];
       } entry;
-      BitmapIndexedNode node;
-    } either;
+      BitmapTrie trie;
+    } _either;
 
-    EntryNode(EntryNode&& other) : is_entry(other.is_entry) {
-      if (is_entry) {
-        either.entry = std::move(other.either.entry);
+   public:
+    Node *BitmapTrie(Allocator &allocator, uint32_t capacity, uint32_t bitmap, uint32_t level) {
+      _is_entry = false;
+      return _either.trie.Initialize(allocator, capacity, bitmap, level);
+    }
+
+    Node(Node&& other) : _is_entry(other._is_entry) {
+      if (_is_entry) {
+        _either.entry = std::move(other._either.entry);
       } else {
-        either.node = other.either.node;
+        _either.trie = other._either.trie;
       }
     }
 
-    EntryNode& operator=(EntryNode&& other) {
-      is_entry = other.is_entry;
-      if (is_entry) {
-        either.entry = std::move(other.either.entry);
+    Node& operator=(Node&& other) {
+      _is_entry = other._is_entry;
+      if (_is_entry) {
+        _either.entry = std::move(other._either.entry);
       } else {
-        either.node = other.either.node;
+        _either.trie = other._either.trie;
       }
       return *this;
     }
 
-    EntryNode(const K& key, const V& value) : is_entry(true) {
-      new (&either.entry) Entry(key, value);
-    }
+    Node(const K& key, const V& value) : _is_entry(true) { new (&_either.entry) Entry(key, value); }
 
-    EntryNode(K&& key, V&& value) : is_entry(true) {
-      new (&either.entry) Entry(key, value);
-    }
+    Node(K&& key, V&& value) : _is_entry(true) { new (&_either.entry) Entry(key, value); }
 
-    EntryNode& operator=(Entry&& other) {
-      is_entry = true;
-      new (&either.entry) Entry(std::move(other));
+    Node& operator=(Entry&& other) {
+      _is_entry = true;
+      new (&_either.entry) Entry(std::move(other));
       return *this;
     }
 
-    Entry& entry() {
-      assert(is_entry && "EntryNode should be an entry");
-      return *reinterpret_cast<Entry *>(&either.entry);
+    bool isEntry() const { return _is_entry; }
+
+    Entry& asEntry() {
+      assert(_is_entry && "Node should be an entry");
+      return *reinterpret_cast<Entry *>(&_either.entry);
     }
 
-    BitmapIndexedNode& node() {
-      assert(!is_entry && "EntryNode should be a node");
-      return either.node;
-    }
-
-    void *InitializeAsNode(Allocator &allocator, uint32_t capacity, uint32_t bitmap, uint32_t level) {
-      is_entry = false;
-      return either.node.Initialize(allocator, capacity, bitmap, level);
+    class BitmapTrie& asTrie() {
+      assert(!_is_entry && "Node should be a trie");
+      return _either.trie;
     }
   };
 
-  class BitmapIndexedNode {
+  // The root of a trie that can contain up to 32 Nodes. A bitmap is used
+  // to compress the array as decribed in the paper.
+  class BitmapTrie {
    private:
     uint32_t _bitmap;
     uint32_t _capacity;
-    EntryNode *_base;
+    Node *_base;
 
-    uint32_t physical_index(uint32_t logical_index) const {
+    uint32_t physicalIndex(uint32_t logical_index) const {
       assert(logical_index < 32);
       uint32_t _bitmask = 0x1 << logical_index;
       return __builtin_popcount(_bitmap & (_bitmask - 1));
     }
 
    public:
-    EntryNode *Initialize(Allocator &allocator, uint32_t capacity, uint32_t bitmap, uint32_t level) {
+    Node *Initialize(Allocator &allocator, uint32_t capacity, uint32_t bitmap, uint32_t level) {
       _capacity = capacity;
       _bitmap = bitmap;
-      _base = allocator.alloc(capacity, level);
+      _base = allocator.allocate(capacity, level);
       return _base;
     } 
 
     uint32_t size() const { return __builtin_popcount(_bitmap); }
     uint32_t capacity() const { return _capacity; }
 
-    EntryNode &physicalGet(uint32_t i) { return _base[i]; }
-    EntryNode &logicalGet(uint32_t i) { return _base[physical_index(i)]; }
+    Node &physicalGet(uint32_t i) { return _base[i]; }
+    Node &logicalGet(uint32_t i) { return _base[physicalIndex(i)]; }
 
-    bool position_occupied(uint32_t logical_index) const {
+    bool logicalPositionTaken(uint32_t logical_index) const {
       assert(logical_index < 32);
       return _bitmap & (0x1 << logical_index);
     }
 
-    EntryNode *Insert(HashArrayMappedTrie *hamt, int logical_index, const K& key, const V& value, uint32_t level) {
-      const uint32_t i = physical_index(logical_index);
+    Node *insert(HashArrayMappedTrie *hamt, int logical_index, const K& key, const V& value, uint32_t level) {
+      const uint32_t i = physicalIndex(logical_index);
       const uint32_t sz = this->size();
 
       uint32_t required = sz + 1;
@@ -245,13 +247,13 @@ class HashArrayMappedTrie {
 
         if (UNLIKELY(_base == nullptr)) {
           assert(i == 0);
-          _base = hamt->allocator.alloc(alloc_size, level);
+          _base = hamt->_allocator.allocate(alloc_size, level);
           if (!_base) {
             return nullptr;
           }
           _capacity = alloc_size;
         } else {
-          EntryNode *new_base = hamt->allocator.alloc(alloc_size, level);
+          Node *new_base = hamt->_allocator.allocate(alloc_size, level);
           if (!new_base) {
             return nullptr;
           }
@@ -263,7 +265,7 @@ class HashArrayMappedTrie {
             new_base[j] = std::move(_base[j - 1]);
           }
 
-          hamt->allocator._free(_base, _capacity, level);
+          hamt->_allocator._free(_base, _capacity, level);
           _base = new_base;
           _capacity = alloc_size;
         }
@@ -278,24 +280,25 @@ class HashArrayMappedTrie {
       _bitmap |= 0x1 << logical_index;
 
       // Insert at allocated position
-      new (&_base[i]) EntryNode(key, value);
+      new (&_base[i]) Node(key, value);
 
       return &_base[i];
     }
   };
 
+  // System memory blocks from where Allocator allocates fragments.
   class MemoryBlock {
    private:
-    EntryNode *_ptr;
-    EntryNode *_cursor;
+    Node *_ptr;
+    Node *_cursor;
     size_t _size;
     size_t _used;
 
    public:
-    MemoryBlock(EntryNode *ptr, size_t size)
+    MemoryBlock(Node *ptr, size_t size)
       : _ptr(ptr), _cursor(ptr), _size(size), _used(0) {}
 
-    EntryNode *allocFragment(size_t fragment_size) {
+    Node *allocFragment(size_t fragment_size) {
       /* printf("- %zu\n", fragment_size); */
       if (_cursor + fragment_size <= _ptr + _size) {
         auto fragment = _cursor;
@@ -307,7 +310,7 @@ class HashArrayMappedTrie {
       return nullptr;
     }
 
-    bool freeFragment(const EntryNode *fragment, size_t fragment_size) {
+    bool freeFragment(const Node *fragment, size_t fragment_size) {
       if (fragment >= _ptr && fragment < _ptr + _size) {
         _used -= fragment_size;
         assert(_used < _size && "Unexpected integer overflow");
@@ -325,6 +328,7 @@ class HashArrayMappedTrie {
     size_t used() const { return _used; }
   };
 
+  // Allocator for fragments of 1 to 32 "Node"s.
   class Allocator {
    private:
     std::deque<MemoryBlock> _blocks;
@@ -333,7 +337,7 @@ class HashArrayMappedTrie {
    public:
     Allocator() : _next_block_size(1) {}
 
-    EntryNode *alloc(uint32_t fragment_size, uint32_t level) {
+    Node *allocate(uint32_t fragment_size, uint32_t level) {
       for (size_t i = 0;;) {
         for (; i < _blocks.size(); i++) {
           auto fragment = _blocks[i].allocFragment(fragment_size);
@@ -343,7 +347,7 @@ class HashArrayMappedTrie {
         }
 
         // Allocate another block and keep looking for block that fits the fragment
-        auto ptr = (EntryNode *)malloc(_next_block_size * sizeof(EntryNode));
+        auto ptr = (Node *)malloc(_next_block_size * sizeof(Node));
         if (ptr == nullptr) {
           return nullptr;
         }
@@ -356,7 +360,7 @@ class HashArrayMappedTrie {
       return nullptr;
     }
 
-    void _free(EntryNode *ptr, uint32_t fragment_size, uint32_t level) {
+    void _free(Node *ptr, uint32_t fragment_size, uint32_t level) {
       // Look for the block that contains the fragment and free it
       for (auto& block : _blocks) {
         if (block.freeFragment(ptr, fragment_size)) {
@@ -386,10 +390,15 @@ class HashArrayMappedTrie {
     }
   };
 
- public:
-  // root,
-  BitmapIndexedNode root;
+  BitmapTrie _root;
+  uint32_t _seed;
+  uint32_t _count;
+  uint32_t _expected_count;
+  uint32_t _generation;
+  Allocator _allocator;
+  Hasher<K> _hasher;
 
+ public:
   HashArrayMappedTrie() : HashArrayMappedTrie(1) {}
 
   HashArrayMappedTrie(uint32_t expected_count) : _count(0) {
@@ -399,51 +408,51 @@ class HashArrayMappedTrie {
 
     uint32_t alloc_size = detail::allocation_size(1, _generation, 0);
     assert(alloc_size >= 1);
-    root.Initialize(allocator, alloc_size, 0, 0);
+    _root.Initialize(_allocator, alloc_size, 0, 0);
   }
 
-  void Insert(const K& key, const V& value) {
-    uint32_t hash = hasher.hash32(key, _seed);
+  void insert(const K& key, const V& value) {
+    uint32_t hash = _hasher.hash32(key, _seed);
 
     if (_count >= _expected_count) {
       _expected_count *= 2;
       _generation++;
     }
-    Insert(root, key, value, _seed, hash, 0, 0);
+    insert(_root, key, value, _seed, hash, 0, 0);
     _count++;
   }
 
-  const V *Find(const K& key) {
-    BitmapIndexedNode *node = &root;
+  const V *find(const K& key) {
+    BitmapTrie *trie = &_root;
     uint32_t seed = _seed;
-    uint32_t hash = hasher.hash32(key, _seed);
+    uint32_t hash = _hasher.hash32(key, _seed);
     uint32_t hash_offset = 0;
     uint32_t t = hash & 0x1f;
 
-    while (node->position_occupied(t)) {
-      auto& entry_node = node->logicalGet(t);
-      if (entry_node.is_entry) {
-        auto& entry = entry_node.entry();
+    while (trie->logicalPositionTaken(t)) {
+      auto& node = trie->logicalGet(t);
+      if (node.isEntry()) {
+        auto& entry = node.asEntry();
         // Keys match!
         if (entry.key == key) {
           return &entry.value;
         }
         /* printf("%d -> %d\n", key, hash); */
-        /* printf("%d -> %d\n", entry.key, hasher.hash32(entry.key, seed)); */
+        /* printf("%d -> %d\n", entry.key, _hasher.hash32(entry.key, seed)); */
         return nullptr;
       }
 
-      // The position stores a node. Keep searching.
+      // The position stores a trie. Keep searching.
 
       if (LIKELY(hash_offset < 25)) {
         hash_offset += 5;
       } else {
         hash_offset = 0;
         seed++;
-        hash = hasher.hash32(key, seed);
+        hash = _hasher.hash32(key, seed);
       }
 
-      node = &entry_node.node();
+      trie = &node.asTrie();
       t = (hash >> hash_offset) & 0x1f;
     }
 
@@ -454,8 +463,8 @@ class HashArrayMappedTrie {
   bool empty() const { return _count == 0; }
 
  public:
-  void Insert(
-      BitmapIndexedNode& node,
+  void insert(
+      BitmapTrie& trie,
       const K& key,
       const V& value,
       uint32_t seed,
@@ -464,17 +473,17 @@ class HashArrayMappedTrie {
       uint32_t level) {
     uint32_t t = (hash >> hash_offset) & 0x1f;
 
-    if (node.position_occupied(t)) {
-      EntryNode *entry_node = &node.logicalGet(t);
-      if (entry_node->is_entry) {
-        Entry *entry = &entry_node->entry();
+    if (trie.logicalPositionTaken(t)) {
+      Node *node = &trie.logicalGet(t);
+      if (node->isEntry()) {
+        Entry *entry = &node->asEntry();
         if (entry->key == key) {
           // Keys match! Override the value.
           entry->value = value;
           return;
         }
 
-        // Has to replace the entry with a node, move this entry there and
+        // Has to replace the entry with a trie, move this entry there and
         // insert the new entry as well.
 
         if (LIKELY(hash_offset < 25)) {
@@ -482,10 +491,10 @@ class HashArrayMappedTrie {
         } else {
           hash_offset = 0;
           seed++;
-          hash = hasher.hash32(key, seed);
+          hash = _hasher.hash32(key, seed);
         }
 
-        BranchOff(entry_node, seed, key, value, hash, hash_offset, level + 1);
+        BranchOff(node, seed, key, value, hash, hash_offset, level + 1);
         return;
       }
 
@@ -494,91 +503,82 @@ class HashArrayMappedTrie {
       } else {
         hash_offset = 0;
         seed++;
-        hash = hasher.hash32(key, seed);
+        hash = _hasher.hash32(key, seed);
       }
 
-      // The position stores a node. Delegate insertion.
-      Insert(entry_node->node(), key, value, seed, hash, hash_offset, level + 1);
+      // The position stores a trie. Delegate insertion.
+      insert(node->asTrie(), key, value, seed, hash, hash_offset, level + 1);
       return;
     }
 
-    node.Insert(this, t, key, value, level);
+    trie.insert(this, t, key, value, level);
   }
 
-  // This function will replace the entry_node contents with a node to
+  // This function will replace the node contents with a trie to
   // make more room for (key, value).
   void BranchOff(
-      EntryNode *old_entry_node,
+      Node *old_node,
       uint32_t seed,
       const K& key,
       const V& value,
       uint32_t hash,
       uint32_t hash_offset,
       uint32_t level) {
-    uint32_t old_entry_hash = hasher.hash32(old_entry_node->entry().key, seed);
-    // Make sure a collision happened at the parent node
+    uint32_t old_entry_hash = _hasher.hash32(old_node->asEntry().key, seed);
+    // Make sure a collision happened at the parent trie
     if (hash_offset >= 5) {
       assert(((old_entry_hash >> (hash_offset - 5)) & 0x1f) ==
              ((hash >> (hash_offset - 5)) & 0x1f) &&
              "BranchOff should be used when collisions are found");
-      assert(old_entry_node->is_entry && "old_entry_node should be an entry");
+      assert(old_node->isEntry() && "old_node should be an entry");
     }
 
     uint32_t old_entry_hash_slice = (old_entry_hash >> hash_offset) & 0x1f;
     uint32_t hash_slice = (hash >> hash_offset) & 0x1f;
 
-    Entry old_entry = std::move(old_entry_node->entry());
+    Entry old_entry = std::move(old_node->asEntry());
 
     if (UNLIKELY(old_entry_hash_slice == hash_slice)) {
-      old_entry_node->InitializeAsNode(allocator, 1, 0x1 << hash_slice, level);
+      old_node->BitmapTrie(_allocator, 1, 0x1 << hash_slice, level);
 
       if (LIKELY(hash_offset < 25)) {
         hash_offset += 5;
       } else {
         hash_offset = 0;
         seed++;
-        old_entry_hash = hasher.hash32(old_entry.key, seed);
-        hash = hasher.hash32(key, seed);
+        old_entry_hash = _hasher.hash32(old_entry.key, seed);
+        hash = _hasher.hash32(key, seed);
       }
 
       // We guess that the two entries will be stored in a single node,
       // so we initialize it with capacity for 2.
-      old_entry_node->node().physicalGet(0).InitializeAsNode(allocator, 2, 0, level + 1);
+      old_node->asTrie().physicalGet(0).BitmapTrie(_allocator, 2, 0, level + 1);
 
-      auto& node = old_entry_node->node().physicalGet(0).node();
-      Insert(node, old_entry.key, old_entry.value, seed, old_entry_hash, hash_offset, level + 1);
-      Insert(node, key, value, seed, hash, hash_offset, level + 1);
+      auto& trie = old_node->asTrie().physicalGet(0).asTrie();
+      insert(trie, old_entry.key, old_entry.value, seed, old_entry_hash, hash_offset, level + 1);
+      insert(trie, key, value, seed, hash, hash_offset, level + 1);
     } else {
-      old_entry_node->InitializeAsNode(
-          allocator,
-          2,
-          (0x1 << old_entry_hash_slice) | (0x1 << hash_slice), level);
+      old_node->BitmapTrie(_allocator, 2, (0x1 << old_entry_hash_slice) | (0x1 << hash_slice), level);
 
-      auto& new_node = old_entry_node->node();
+      auto& new_trie = old_node->asTrie();
       if (old_entry_hash_slice < hash_slice) {
-        new_node.physicalGet(0) = std::move(old_entry);
-        new (&new_node.physicalGet(1)) EntryNode(key, value);
+        new_trie.physicalGet(0) = std::move(old_entry);
+        new (&new_trie.physicalGet(1)) Node(key, value);
       } else {
-        new (&new_node.physicalGet(0)) EntryNode(key, value);
-        new_node.physicalGet(1) = std::move(old_entry);
+        new (&new_trie.physicalGet(0)) Node(key, value);
+        new_trie.physicalGet(1) = std::move(old_entry);
       }
     }
   }
 
+#ifdef GTEST
+  BitmapTrie &root() { return _root; }
+#endif
+
   void print() {
-    allocator.dump(_count);
-    /* printf("%zu, %zu, %zu\n", _count, allocator._total_allocated, allocator._total_in_free_lists); */
+    _allocator.dump(_count);
+    /* printf("%zu, %zu, %zu\n", _count, _allocator._total_allocated, _allocator._total_in_free_lists); */
   }
-
-  Allocator allocator;
-
- private:
-  uint32_t _count;
-  uint32_t _expected_count;
-  uint32_t _generation;
-  uint32_t _seed;
-
-  Hasher<K> hasher;
 };
 
 /* HashArrayMappedTrie<int, int> a; */
