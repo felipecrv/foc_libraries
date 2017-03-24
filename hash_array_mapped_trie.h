@@ -206,7 +206,11 @@ class HashArrayMappedTrie {
   // The root of a trie that can contain up to 32 Nodes. A bitmap is used
   // to compress the array as decribed in the paper.
   class BitmapTrie {
+#ifdef GTEST
+   public:
+#else
    private:
+#endif
     uint32_t _bitmap;
     uint32_t _capacity;
     Node *_base;
@@ -329,6 +333,7 @@ class HashArrayMappedTrie {
   };
 
   // Allocator for fragments of 1 to 32 "Node"s.
+  /*
   class Allocator {
    private:
     std::deque<MemoryBlock> _blocks;
@@ -387,6 +392,40 @@ class HashArrayMappedTrie {
         active += block.used();
       }
       printf("%zu, %zu, %zu\n", n, allocated, active);
+    }
+  };*/
+  class Allocator {
+   private:
+    std::vector<Node *> free_lists[33];
+    size_t _allocated = 0;
+
+   public:
+    Allocator() {}
+
+    Node *allocate(uint32_t fragment_size, uint32_t level) {
+      if (!free_lists[fragment_size].empty()) {
+        auto ptr = free_lists[fragment_size].back();
+        free_lists[fragment_size].pop_back();
+        return ptr;
+      }
+
+      _allocated += fragment_size;
+      return (Node *)malloc(fragment_size * sizeof(Node));
+    }
+
+    void _free(Node *ptr, uint32_t fragment_size, uint32_t level) {
+      free_lists[fragment_size].push_back(ptr);
+    }
+
+    void dump(size_t n, size_t inner_nodes) {
+      size_t free_count = 0;
+      for (uint32_t i = 1; i <= 32; i++) {
+        free_count += free_lists[i].size() * i;
+      }
+
+      size_t empty = _allocated - free_count - inner_nodes - n;
+
+      printf("%zu\t\t%zu\t\t%zu\t\t%zu\t\t%zu\n", n, inner_nodes, _allocated, free_count, empty);
     }
   };
 
@@ -511,7 +550,7 @@ class HashArrayMappedTrie {
       return insert(&node->asTrie(), key, value, seed, hash, hash_offset, level + 1);
     }
 
-    trie->insert(this, t, key, value, level);
+    return trie->insert(this, t, key, value, level);
   }
 
   // This function will replace the node contents with a trie to
@@ -576,12 +615,26 @@ class HashArrayMappedTrie {
 
 #ifdef GTEST
   BitmapTrie &root() { return _root; }
-#endif
+
+  size_t countInnerNodes(BitmapTrie &trie) {
+    size_t inner_nodes_count = 0;
+
+    for (uint32_t i = 0; i < trie.size(); i++) {
+      Node &node = trie.physicalGet(i);
+      if (!node.isEntry()) {
+        inner_nodes_count += 1 + countInnerNodes(node.asTrie());
+      }
+    }
+
+    return inner_nodes_count;
+  }
 
   void print() {
-    _allocator.dump(_count);
+    size_t inner_nodes_count = countInnerNodes(_root);
+    _allocator.dump(_count, inner_nodes_count);
     /* printf("%zu, %zu, %zu\n", _count, _allocator._total_allocated, _allocator._total_in_free_lists); */
   }
+#endif
 };
 
 /* HashArrayMappedTrie<int, int> a; */
