@@ -99,34 +99,29 @@ struct Entry {
 };
 
 static uint32_t allocation_size(uint32_t required, uint32_t generation, uint32_t level) {
-  const static uint32_t alloc_sizes[] = {
+  assert(required <= 32);
+  const static uint32_t alloc_sizes[33] = {
     // 0  1  2  3  4  5  6  7  8   9  10  11  12  13  14  15  16  17  18  19  20  21  22  23  24  25  26  27  28  29  30  31  32
        1, 1, 2, 3, 5, 5, 8, 8, 8, 13, 13, 13, 13, 13, 21, 21, 21, 21, 21, 21, 21, 21, 29, 29, 29, 29, 29, 29, 29, 29, 32, 32, 32
   };
   // [level][generation]
-  const static uint32_t alloc_sizes_by_level[][22] = {
-    // 1  2  4  8  16  32  64  128 256  512 1024 2048 4096 8192 16384 32768 65536 2^17 2^18 2^19 2^20 2^21
-    {  2, 3, 5, 8, 13, 21, 29, 32,  32, 32,  32,  32,  32,  32,   32,   32,   32,  32,  32,  32,  32,  32},
-    {  1, 1, 1, 1,  1,  2,  3,  5,   8, 13,  21,  29,  32,  32,   32,   32,   32,  32,  32,  32,  32,  32},
-    {  1, 1, 1, 1,  1,  1,  1,  1,   1,  1,   2,   3,   5,   8,   13,   21,   29,  32,  32,  32,  32,  32},
-    {  1, 1, 1, 1,  1,  1,  1,  1,   1,  1,   1,   1,   1,   1,    1,    2,    3,   5,   8,  13,  21,  29},
+  const static uint32_t alloc_sizes_by_level[][23] = {
+    // 1  2  4  8  16  32  64  128 256  512 1024 2048 4096 8192 16384 32768 65536 2^17 2^18 2^19 2^20 2^21 2^22
+    {  2, 3, 5, 8, 13, 21, 29, 32,  32, 32,  32,  32,  32,  32,   32,   32,   32,  32,  32,  32,  32,  32,  32},
+    {  1, 1, 1, 1,  1,  2,  3,  5,   8, 13,  21,  29,  32,  32,   32,   32,   32,  32,  32,  32,  32,  32,  32},
+    {  1, 1, 1, 1,  1,  1,  1,  1,   1,  1,   2,   3,   5,   8,   13,   21,   29,  32,  32,  32,  32,  32,  32},
+    {  1, 1, 1, 1,  1,  1,  1,  1,   1,  1,   1,   1,   1,   1,    1,    2,    3,   5,   8,  13,  21,  29,  32},
+    {  1, 1, 1, 1,  1,  1,  1,  1,   1,  1,   1,   1,   1,   1,    1,    1,    1,   1,   1,   1,   1,   1,   1},
   };
 
-  if (level > 3) {
-    uint32_t guess = 1;
-    if (required > guess) {
-      assert(required <= 32);
-      return alloc_sizes[required];
-    }
-    return guess;
+  if (generation > 22) {
+    generation = 22;
   }
-
-  if (generation > 21) {
-    return 32;
+  if (level > 4) {
+    level = 4;
   }
   uint32_t guess = alloc_sizes_by_level[level][generation];
   if (required > guess) {
-    assert(required <= 32);
     return alloc_sizes[required];
   }
   return guess;
@@ -333,7 +328,6 @@ class HashArrayMappedTrie {
   };
 
   // Allocator for fragments of 1 to 32 "Node"s.
-  /*
   class Allocator {
    private:
     std::deque<MemoryBlock> _blocks;
@@ -383,7 +377,7 @@ class HashArrayMappedTrie {
       }
     }
 
-    void dump(size_t n) {
+    void dump(size_t n, size_t inner_nodes) {
       size_t allocated = 0;
       size_t active = 0;
       for (auto block : _blocks) {
@@ -391,9 +385,13 @@ class HashArrayMappedTrie {
         allocated += block.size();
         active += block.used();
       }
-      printf("%zu, %zu, %zu\n", n, allocated, active);
+      size_t free_count = allocated - active;
+      size_t empty = allocated - free_count - inner_nodes - n;
+
+      printf("%zu\t\t%zu\t\t%zu\t\t%zu\t\t%zu\n", n, inner_nodes, allocated, free_count, empty);
     }
-  };*/
+  };
+  /*
   class Allocator {
    private:
     std::vector<Node *> free_lists[33];
@@ -428,6 +426,7 @@ class HashArrayMappedTrie {
       printf("%zu\t\t%zu\t\t%zu\t\t%zu\t\t%zu\n", n, inner_nodes, _allocated, free_count, empty);
     }
   };
+  */
 
   BitmapTrie _root;
   uint32_t _seed;
