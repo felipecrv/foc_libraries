@@ -241,8 +241,9 @@ class HashArrayMappedTrie {
   uint32_t _generation;
   uint32_t _seed;
   BitmapTrie _root;
-  Hash _hasher;
   Allocator _allocator;
+  Hash _hasher;
+  KeyEqual _key_equal;
 
  public:
   HashArrayMappedTrie() : HashArrayMappedTrie(1) {}
@@ -285,7 +286,7 @@ class HashArrayMappedTrie {
       if (node.isEntry()) {
         auto& entry = node.asEntry();
         // Keys match!
-        if (entry.first == key) {
+        if (_key_equal(entry.first, key)) {
           return &entry.second;
         }
         /* printf("%d -> %d\n", key, hash); */
@@ -324,7 +325,7 @@ class HashArrayMappedTrie {
       Node *node = &trie->logicalGet(t);
       if (node->isEntry()) {
         Entry *entry = &node->asEntry();
-        if (entry->first == key) {
+        if (_key_equal(entry->first, key)) {
           // Keys match! Override the value.
           entry->second = value;
           return node;
