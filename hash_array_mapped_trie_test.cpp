@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 
 #define GTEST
-
+#define HAMT_IMPLEMENTATION
 #include "hash_array_mapped_trie.h"
 
 using foc::HashArrayMappedTrie;

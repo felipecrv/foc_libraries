@@ -11,6 +11,7 @@
 #include <string>
 #include <utility>
 #include <functional>
+#include <initializer_list>
 
 #include "support.h"
 
@@ -80,18 +81,8 @@ template<
   class KeyEqual = std::equal_to<Key>,
   class Allocator = MallocAllocator>
 class HashArrayMappedTrie {
- public:
-  // Some std::unordered_map member types
-  typedef Key key_type;
-  typedef T mapped_type;
-  typedef std::pair<const Key, T> value_type;
-  typedef Hash hasher;
-  typedef KeyEqual key_equal;
-  typedef value_type &reference;
-  typedef const value_type &const_reference;
-
  PUBLIC_IN_GTEST:
-  typedef std::pair<const Key, T> Entry;
+  using Entry = std::pair<const Key, T>;
 
   class BitmapTrie;
 
@@ -236,27 +227,82 @@ class HashArrayMappedTrie {
     }
   };
 
+ public:
+  // Some std::unordered_map member types.
+  //
+  // Notice that our Allocator is nothing like any std allocator!
+  // Because of that, size_type is defined as `size_t` and I didn't
+  // bother defining some allocator related types that exist in
+  // std::unordered_map (pointer, const_pointer...).
+  typedef Key                                       key_type;
+  typedef T                                         mapped_type;
+  typedef Hash                                      hasher;
+  typedef KeyEqual                                  key_equal;
+  typedef Allocator                                 allocator_type;
+  typedef std::pair<const Key, T>                   value_type;
+  typedef value_type&                               reference;
+  typedef const value_type&                         const_reference;
+  /* typedef HashArrayMappedTrieForwardIterator        iterator; */
+  /* typedef const HashArrayMappedTrieForwardIterator  const_iterator; */
+
   size_t _count;
   size_t _expected_count;
   uint32_t _generation;
   uint32_t _seed;
   BitmapTrie _root;
-  Allocator _allocator;
   Hash _hasher;
   KeyEqual _key_equal;
+  Allocator _allocator;
 
  public:
-  HashArrayMappedTrie() : HashArrayMappedTrie(1) {}
+   HashArrayMappedTrie() : HashArrayMappedTrie(1) {} // TODO: change to 0?
 
-  HashArrayMappedTrie(size_t expected_count) : _count(0) {
-    _seed = static_cast<uint32_t>(FOC_GET_HASH_SEED);
-    _expected_count = (expected_count > 0) ? next_power_of_2(expected_count - 1) : 1;
-    _generation = 0; // FIX: log2 _expected_count
+  explicit HashArrayMappedTrie(
+      size_t n,
+      const hasher& hf = hasher(),
+      const key_equal& eql = key_equal(),
+      const allocator_type &a = allocator_type());
+  /*explicit HashArrayMappedTrie(const allocator_type&);
+  HashArrayMappedTrie(const HashArrayMappedTrie&);
+  HashArrayMappedTrie(const HashArrayMappedTrie&, const allocator_type&);
+  HashArrayMappedTrie(HashArrayMappedTrie&&);
+  HashArrayMappedTrie(HashArrayMappedTrie&&, const allocator_type&);
+  HashArrayMappedTrie(
+      initializer_list<value_type>,
+      size_t n = 0,
+      const hasher& hf = hasher(),
+      const key_equal& eql = key_equal(),
+      const allocator_type& a = allocator_type());
+      */
 
-    uint32_t alloc_size = detail::hamt_allocation_size(1, _generation, 0);
-    assert(alloc_size >= 1);
-    _root.Initialize(this, alloc_size, 0);
-  }
+  // C++14
+  /*
+  HashArrayMappedTrie(size_t n, const allocator_type& a)
+    : HashArrayMappedTrie(n, hasher(), key_equal(), a) {}
+  HashArrayMappedTrie(size_t n, const hasher& hf, const allocator_type& a)
+    : HashArrayMappedTrie(n, hf, key_equal(), a) {}
+  */
+  /*
+  template <class InputIterator>
+  HashArrayMappedTrie(InputIterator f, InputIterator l, size_t n, const allocator_type& a)
+    : HashArrayMappedTrie(f, l, n, hasher(), key_equal(), a) {}
+  template <class InputIterator>
+  HashArrayMappedTrie(InputIterator f, InputIterator l, size_t n, const hasher& hf, const allocator_type& a)
+    : HashArrayMappedTrie(f, l, n, hf, key_equal(), a) {}
+  */
+  /*
+  HashArrayMappedTrie(initializer_list<value_type> il, size_t n, const allocator_type& a)
+    : HashArrayMappedTrie(il, n, hasher(), key_equal(), a) {}
+  HashArrayMappedTrie(initializer_list<value_type> il, size_t n, const hasher& hf, const allocator_type& a)
+    : HashArrayMappedTrie(il, n, hf, key_equal(), a) {}
+  */
+
+  /*
+  ~HashArrayMappedTrie();
+  HashArrayMappedTrie& operator=(const HashArrayMappedTrie&);
+  HashArrayMappedTrie& operator=(HashArrayMappedTrie&&);
+  HashArrayMappedTrie& operator=(initializer_list<value_type>);
+  */
 
   size_t size() const { return _count; }
   bool empty() const { return _count == 0; }
@@ -455,5 +501,19 @@ class HashArrayMappedTrie {
   }
 #endif  // GTEST
 };
+
+template<class Key, class T, class Hash, class KeyEqual, class Allocator>
+HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
+    size_t n, const hasher& hf, const key_equal& eql, const allocator_type &a)
+  : _count(0), _hasher(hf), _key_equal(eql), _allocator(a) {
+
+  _seed = static_cast<uint32_t>(FOC_GET_HASH_SEED);
+  _expected_count = (n > 0) ? next_power_of_2(n - 1) : 1;
+  _generation = 0; // FIX: log2 _expected_count
+
+  uint32_t alloc_size = detail::hamt_allocation_size(1, _generation, 0);
+  assert(alloc_size >= 1);
+  _root.Initialize(this, alloc_size, 0);
+}
 
 }  // namespace foc
