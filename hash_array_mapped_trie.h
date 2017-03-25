@@ -14,6 +14,14 @@
 
 #include "support.h"
 
+#ifndef PUBLIC_IN_GTEST
+# ifdef GTEST
+#  define PUBLIC_IN_GTEST public
+# else
+#  define PUBLIC_IN_GTEST private
+# endif
+#endif
+
 // This needs to be a per-execution seed to avoid denial-of-service attacks
 // and you should not rely on the same hashes being generated on different
 // runs of the program.
@@ -57,165 +65,11 @@ static uint32_t allocation_size(uint32_t required, uint32_t generation, uint32_t
   return guess;
 }
 
-// Allocator for fragments of 1 to 32 "Node"s.
-template<class Node>
-class BlockAllocator {
- private:
-  // System memory blocks from where Allocator allocates fragments.
-  class MemoryBlock {
-   private:
-    Node *_ptr;
-    Node *_cursor;
-    size_t _size;
-    size_t _used;
-
-   public:
-    MemoryBlock(Node *ptr, size_t size)
-      : _ptr(ptr), _cursor(ptr), _size(size), _used(0) {}
-
-    Node *allocFragment(size_t fragment_size) {
-      /* printf("- %zu\n", fragment_size); */
-      if (_cursor + fragment_size <= _ptr + _size) {
-        auto fragment = _cursor;
-        _cursor += fragment_size;
-        _used += fragment_size;
-        return fragment;
-      }
-
-      return nullptr;
-    }
-
-    bool freeFragment(const Node *fragment, size_t fragment_size) {
-      if (fragment >= _ptr && fragment < _ptr + _size) {
-        _used -= fragment_size;
-        assert(_used < _size && "Unexpected integer overflow");
-        if (_used == 0) {
-          free(_ptr);
-          _ptr = nullptr;
-        }
-        return true;
-      }
-      return false;
-    }
-
-    bool empty() const { return _ptr == nullptr; }
-    size_t size() const { return _ptr ? _size : 0; }
-    size_t used() const { return _used; }
-  };
-
-  std::deque<MemoryBlock> _blocks;
-  size_t _next_block_size;
-
- public:
-  BlockAllocator() : _next_block_size(1) {}
-
-  Node *allocate(size_t fragment_size) {
-    for (size_t i = 0;;) {
-      for (; i < _blocks.size(); i++) {
-        auto fragment = _blocks[i].allocFragment(fragment_size);
-        if (fragment != nullptr) {
-          return fragment;
-        }
-      }
-
-      // Allocate another block and keep looking for block that fits the fragment
-      auto ptr = (Node *)malloc(_next_block_size * sizeof(Node));
-      if (ptr == nullptr) {
-        return nullptr;
-      }
-      _blocks.push_back(MemoryBlock(ptr, _next_block_size));
-      _next_block_size *= 2;
-
-      assert(i + 1 == _blocks.size());
-    }
-
-    return nullptr;
-  }
-
-  void deallocate(Node *ptr, uint32_t fragment_size) {
-    // Look for the block that contains the fragment and free it
-    for (auto& block : _blocks) {
-      if (block.freeFragment(ptr, fragment_size)) {
-        break;
-      }
-    }
-    // Remove empty blocks from the front of the deque
-    while (!_blocks.empty()) {
-      auto block = _blocks.front();
-      if (block.empty()) {
-        _blocks.pop_front();
-      } else {
-        break;
-      }
-    }
-  }
-
-  void dump(size_t n, size_t inner_nodes) {
-    size_t allocated = 0;
-    size_t active = 0;
-    for (auto block : _blocks) {
-      printf("%zu (%zu)\n", block.size(), block.used());
-      allocated += block.size();
-      active += block.used();
-    }
-    size_t free_count = allocated - active;
-    size_t empty = allocated - free_count - inner_nodes - n;
-
-    printf("%zu\t\t%zu\t\t%zu\t\t%zu\t\t%zu\n", n, inner_nodes, allocated, free_count, empty);
-  }
-};
-
-template<class Node>
-class FreeListAllocator {
- private:
-  std::vector<Node *> free_lists[33];
-  size_t _allocated = 0;
-
- public:
-  Node *allocate(uint32_t fragment_size) {
-    if (!free_lists[fragment_size].empty()) {
-      auto ptr = free_lists[fragment_size].back();
-      free_lists[fragment_size].pop_back();
-      return ptr;
-    }
-
-    _allocated += fragment_size;
-    return (Node *)malloc(fragment_size * sizeof(Node));
-  }
-
-  void deallocate(Node *ptr, uint32_t fragment_size) {
-    free_lists[fragment_size].push_back(ptr);
-  }
-
-  void dump(size_t n, size_t inner_nodes) {
-    size_t free_count = 0;
-    for (uint32_t i = 1; i <= 32; i++) {
-      free_count += free_lists[i].size() * i;
-    }
-
-    size_t empty = _allocated - free_count - inner_nodes - n;
-
-    printf("%zu\t\t%zu\t\t%zu\t\t%zu\t\t%zu\n", n, inner_nodes, _allocated, free_count, empty);
-  }
-};
-
-template<class Node>
 class MallocAllocator {
  public:
-  Node *allocate(uint32_t fragment_size) {
-    return (Node *)malloc(fragment_size * sizeof(Node));
-  }
-
-  void deallocate(Node *ptr, uint32_t) {
-    free(ptr);
-  }
-
-  void dump(size_t n, size_t inner_nodes) {
-    /* size_t empty = _allocated - free_count - inner_nodes - n; */
-    /* printf("%zu\t\t%zu\t\t%zu\t\t%zu\t\t%zu\n", n, inner_nodes, _allocated, free_count, empty); */
-  }
+  void *allocate(size_t size, size_t) { return malloc(size); }
+  void deallocate(void *ptr, size_t) { free(ptr); }
 };
-
 
 }  // namespace detail
 
@@ -223,7 +77,8 @@ template<
   class Key,
   class T,
   class Hash = std::hash<Key>,
-  class KeyEqual = std::equal_to<Key>>
+  class KeyEqual = std::equal_to<Key>,
+  class Allocator = detail::MallocAllocator>
 class HashArrayMappedTrie {
  public:
   // Some std::unordered_map member types
@@ -239,7 +94,6 @@ class HashArrayMappedTrie {
 
   class Node;
   class BitmapTrie;
-  using Allocator = detail::MallocAllocator<Node>;
 
   // A Node in the HAMT is a sum type of Entry and BitmapTrie (can be one or the other).
   class Node {
@@ -302,11 +156,7 @@ class HashArrayMappedTrie {
   // The root of a trie that can contain up to 32 Nodes. A bitmap is used
   // to compress the array as decribed in the paper.
   class BitmapTrie {
-#ifdef GTEST
-   public:
-#else
-   private:
-#endif
+   PUBLIC_IN_GTEST:
     uint32_t _bitmap;
     uint32_t _capacity;
     Node *_base;
@@ -321,7 +171,7 @@ class HashArrayMappedTrie {
     Node *Initialize(Allocator &allocator, uint32_t capacity, uint32_t bitmap) {
       _capacity = capacity;
       _bitmap = bitmap;
-      _base = allocator.allocate(capacity);
+      _base = static_cast<Node *>(allocator.allocate(capacity * sizeof(Node), alignof(Node)));
       return _base;
     } 
 
@@ -347,13 +197,13 @@ class HashArrayMappedTrie {
 
         if (UNLIKELY(_base == nullptr)) {
           assert(i == 0);
-          _base = hamt->_allocator.allocate(alloc_size);
+          _base = static_cast<Node *>(hamt->_allocator.allocate(alloc_size * sizeof(Node), alignof(Node)));
           if (!_base) {
             return nullptr;
           }
           _capacity = alloc_size;
         } else {
-          Node *new_base = hamt->_allocator.allocate(alloc_size);
+          Node *new_base = static_cast<Node *>(hamt->_allocator.allocate(alloc_size * sizeof(Node), alignof(Node)));
           if (!new_base) {
             return nullptr;
           }
@@ -593,11 +443,11 @@ class HashArrayMappedTrie {
   }
 
   void print() {
-    size_t inner_nodes_count = countInnerNodes(_root);
-    _allocator.dump(_count, inner_nodes_count);
+    /* size_t inner_nodes_count = countInnerNodes(_root); */
+    /* _allocator.dump(_count, inner_nodes_count); */
     /* printf("%zu, %zu, %zu\n", _count, _allocator._total_allocated, _allocator._total_in_free_lists); */
   }
-#endif
+#endif  // GTEST
 };
 
 }  // namespace foc
