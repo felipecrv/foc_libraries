@@ -89,79 +89,79 @@ TEST_F(HashArrayMappedTrieTest, LogicalToPhysicalIndexTranslationTest) {
 TEST_F(HashArrayMappedTrieTest, BitmapIndexedNodeInsertionTest) {
   HAMT hamt;
   HAMT::BitmapTrie trie;
-  trie.Initialize(hamt._allocator, 1, 0, 0);
+  trie.Initialize(hamt._allocator, 1, 0);
 
   auto e = trie.insert(&hamt, 4, 40, 4, 0);
   EXPECT_EQ(trie._bitmap, 16); // 010000
   EXPECT_EQ(trie.size(), 1);
-  EXPECT_EQ(trie.physicalGet(0).asEntry().key, 40);
-  EXPECT_EQ(trie.physicalGet(0).asEntry().value, 4);
+  EXPECT_EQ(trie.physicalGet(0).asEntry().first, 40);
+  EXPECT_EQ(trie.physicalGet(0).asEntry().second, 4);
 
   e = trie.insert(&hamt, 2, 20, 2, 0);
   EXPECT_EQ(trie._bitmap, 20); // 010100
   EXPECT_EQ(trie.size(), 2);
-  EXPECT_EQ(trie.physicalGet(0).asEntry().key, 20);
-  EXPECT_EQ(trie.physicalGet(0).asEntry().value, 2);
-  EXPECT_EQ(trie.physicalGet(1).asEntry().key, 40);
-  EXPECT_EQ(trie.physicalGet(1).asEntry().value, 4);
+  EXPECT_EQ(trie.physicalGet(0).asEntry().first, 20);
+  EXPECT_EQ(trie.physicalGet(0).asEntry().second, 2);
+  EXPECT_EQ(trie.physicalGet(1).asEntry().first, 40);
+  EXPECT_EQ(trie.physicalGet(1).asEntry().second, 4);
 
   e = trie.insert(&hamt, 3, 30, 3, 0);
   EXPECT_EQ(trie._bitmap, 28); // 011100
   EXPECT_EQ(trie.size(), 3);
-  EXPECT_EQ(trie.physicalGet(0).asEntry().key, 20);
-  EXPECT_EQ(trie.physicalGet(0).asEntry().value, 2);
-  EXPECT_EQ(trie.physicalGet(1).asEntry().key, 30);
-  EXPECT_EQ(trie.physicalGet(1).asEntry().value, 3);
-  EXPECT_EQ(trie.physicalGet(2).asEntry().key, 40);
-  EXPECT_EQ(trie.physicalGet(2).asEntry().value, 4);
+  EXPECT_EQ(trie.physicalGet(0).asEntry().first, 20);
+  EXPECT_EQ(trie.physicalGet(0).asEntry().second, 2);
+  EXPECT_EQ(trie.physicalGet(1).asEntry().first, 30);
+  EXPECT_EQ(trie.physicalGet(1).asEntry().second, 3);
+  EXPECT_EQ(trie.physicalGet(2).asEntry().first, 40);
+  EXPECT_EQ(trie.physicalGet(2).asEntry().second, 4);
 
   e = trie.insert(&hamt, 0, 0, 0, 0);
   EXPECT_EQ(trie._bitmap, 29); // 011101
   EXPECT_EQ(trie.size(), 4);
-  EXPECT_EQ(trie.physicalGet(0).asEntry().key, 0);
-  EXPECT_EQ(trie.physicalGet(0).asEntry().value, 0);
-  EXPECT_EQ(trie.physicalGet(1).asEntry().key, 20);
-  EXPECT_EQ(trie.physicalGet(1).asEntry().value, 2);
-  EXPECT_EQ(trie.physicalGet(2).asEntry().key, 30);
-  EXPECT_EQ(trie.physicalGet(2).asEntry().value, 3);
-  EXPECT_EQ(trie.physicalGet(3).asEntry().key, 40);
-  EXPECT_EQ(trie.physicalGet(3).asEntry().value, 4);
+  EXPECT_EQ(trie.physicalGet(0).asEntry().first, 0);
+  EXPECT_EQ(trie.physicalGet(0).asEntry().second, 0);
+  EXPECT_EQ(trie.physicalGet(1).asEntry().first, 20);
+  EXPECT_EQ(trie.physicalGet(1).asEntry().second, 2);
+  EXPECT_EQ(trie.physicalGet(2).asEntry().first, 30);
+  EXPECT_EQ(trie.physicalGet(2).asEntry().second, 3);
+  EXPECT_EQ(trie.physicalGet(3).asEntry().first, 40);
+  EXPECT_EQ(trie.physicalGet(3).asEntry().second, 4);
 
   e = trie.insert(&hamt, 5, 50, 5, 0);
   EXPECT_EQ(trie._bitmap, 61); // 111101
   EXPECT_EQ(trie.size(), 5);
-  EXPECT_EQ(trie.physicalGet(0).asEntry().key, 0);
-  EXPECT_EQ(trie.physicalGet(0).asEntry().value, 0);
-  EXPECT_EQ(trie.physicalGet(1).asEntry().key, 20);
-  EXPECT_EQ(trie.physicalGet(1).asEntry().value, 2);
-  EXPECT_EQ(trie.physicalGet(2).asEntry().key, 30);
-  EXPECT_EQ(trie.physicalGet(2).asEntry().value, 3);
-  EXPECT_EQ(trie.physicalGet(3).asEntry().key, 40);
-  EXPECT_EQ(trie.physicalGet(3).asEntry().value, 4);
-  EXPECT_EQ(trie.physicalGet(4).asEntry().key, 50);
-  EXPECT_EQ(trie.physicalGet(4).asEntry().value, 5);
+  EXPECT_EQ(trie.physicalGet(0).asEntry().first, 0);
+  EXPECT_EQ(trie.physicalGet(0).asEntry().second, 0);
+  EXPECT_EQ(trie.physicalGet(1).asEntry().first, 20);
+  EXPECT_EQ(trie.physicalGet(1).asEntry().second, 2);
+  EXPECT_EQ(trie.physicalGet(2).asEntry().first, 30);
+  EXPECT_EQ(trie.physicalGet(2).asEntry().second, 3);
+  EXPECT_EQ(trie.physicalGet(3).asEntry().first, 40);
+  EXPECT_EQ(trie.physicalGet(3).asEntry().second, 4);
+  EXPECT_EQ(trie.physicalGet(4).asEntry().first, 50);
+  EXPECT_EQ(trie.physicalGet(4).asEntry().second, 5);
 
   e = trie.insert(&hamt, 1, 10, 1, 0);
   EXPECT_EQ(trie._bitmap, 63); // 111111
   EXPECT_EQ(trie.size(), 6);
-  EXPECT_EQ(trie.physicalGet(0).asEntry().key, 0);
-  EXPECT_EQ(trie.physicalGet(0).asEntry().value, 0);
-  EXPECT_EQ(trie.physicalGet(1).asEntry().key, 10);
-  EXPECT_EQ(trie.physicalGet(1).asEntry().value, 1);
-  EXPECT_EQ(trie.physicalGet(2).asEntry().key, 20);
-  EXPECT_EQ(trie.physicalGet(2).asEntry().value, 2);
-  EXPECT_EQ(trie.physicalGet(3).asEntry().key, 30);
-  EXPECT_EQ(trie.physicalGet(3).asEntry().value, 3);
-  EXPECT_EQ(trie.physicalGet(4).asEntry().key, 40);
-  EXPECT_EQ(trie.physicalGet(4).asEntry().value, 4);
-  EXPECT_EQ(trie.physicalGet(5).asEntry().key, 50);
-  EXPECT_EQ(trie.physicalGet(5).asEntry().value, 5);
+  EXPECT_EQ(trie.physicalGet(0).asEntry().first, 0);
+  EXPECT_EQ(trie.physicalGet(0).asEntry().second, 0);
+  EXPECT_EQ(trie.physicalGet(1).asEntry().first, 10);
+  EXPECT_EQ(trie.physicalGet(1).asEntry().second, 1);
+  EXPECT_EQ(trie.physicalGet(2).asEntry().first, 20);
+  EXPECT_EQ(trie.physicalGet(2).asEntry().second, 2);
+  EXPECT_EQ(trie.physicalGet(3).asEntry().first, 30);
+  EXPECT_EQ(trie.physicalGet(3).asEntry().second, 3);
+  EXPECT_EQ(trie.physicalGet(4).asEntry().first, 40);
+  EXPECT_EQ(trie.physicalGet(4).asEntry().second, 4);
+  EXPECT_EQ(trie.physicalGet(5).asEntry().first, 50);
+  EXPECT_EQ(trie.physicalGet(5).asEntry().second, 5);
 
   e = trie.insert(&hamt, 31, 310, 31, 0);
   EXPECT_EQ(trie._bitmap, 63 | (0x1 << 31));
   EXPECT_EQ(trie.size(), 7);
-  EXPECT_EQ(trie.physicalGet(6).asEntry().key, 310);
-  EXPECT_EQ(trie.physicalGet(6).asEntry().value, 31);
+  EXPECT_EQ(trie.physicalGet(6).asEntry().first, 310);
+  EXPECT_EQ(trie.physicalGet(6).asEntry().second, 31);
 }
 
 void print_bitmap_indexed_node(
@@ -174,7 +174,7 @@ void print_bitmap_indexed_node(
     if (trie.logicalPositionTaken(i)) {
       auto& node = trie.logicalGet(i);
       if (node.isEntry()) {
-        printf("%3lld ", node.asEntry().value);
+        printf("%3lld ", node.asEntry().second);
       } else {
         printf("[ ] ");
         tries.push_back(&node.asTrie());
