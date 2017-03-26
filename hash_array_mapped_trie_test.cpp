@@ -89,7 +89,7 @@ TEST_F(HashArrayMappedTrieTest, LogicalToPhysicalIndexTranslationTest) {
 TEST_F(HashArrayMappedTrieTest, BitmapIndexedNodeInsertionTest) {
   HAMT hamt;
   HAMT::BitmapTrie trie;
-  trie.Initialize(hamt._allocator, 1, 0);
+  trie.allocate(hamt._allocator, 1);
 
   auto e = std::make_pair(40LL, 4LL);
   trie.insert(hamt._allocator, 4, e, 2, 0);
