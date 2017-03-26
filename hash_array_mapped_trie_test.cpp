@@ -89,15 +89,15 @@ TEST_F(HashArrayMappedTrieTest, LogicalToPhysicalIndexTranslationTest) {
 TEST_F(HashArrayMappedTrieTest, BitmapIndexedNodeInsertionTest) {
   HAMT hamt;
   HAMT::BitmapTrie trie;
-  trie.Initialize(&hamt, 1, 0);
+  trie.Initialize(hamt._allocator, 1, 0);
 
-  auto e = trie.insert(&hamt, 4, 40, 4, 0);
+  auto e = trie.insert(hamt._allocator, 4, 40, 4, 2, 0);
   EXPECT_EQ(trie._bitmap, 16); // 010000
   EXPECT_EQ(trie.size(), 1);
   EXPECT_EQ(trie.physicalGet(0).asEntry().first, 40);
   EXPECT_EQ(trie.physicalGet(0).asEntry().second, 4);
 
-  e = trie.insert(&hamt, 2, 20, 2, 0);
+  e = trie.insert(hamt._allocator, 2, 20, 2, 2, 0);
   EXPECT_EQ(trie._bitmap, 20); // 010100
   EXPECT_EQ(trie.size(), 2);
   EXPECT_EQ(trie.physicalGet(0).asEntry().first, 20);
@@ -105,7 +105,7 @@ TEST_F(HashArrayMappedTrieTest, BitmapIndexedNodeInsertionTest) {
   EXPECT_EQ(trie.physicalGet(1).asEntry().first, 40);
   EXPECT_EQ(trie.physicalGet(1).asEntry().second, 4);
 
-  e = trie.insert(&hamt, 3, 30, 3, 0);
+  e = trie.insert(hamt._allocator, 3, 30, 3, 2, 0);
   EXPECT_EQ(trie._bitmap, 28); // 011100
   EXPECT_EQ(trie.size(), 3);
   EXPECT_EQ(trie.physicalGet(0).asEntry().first, 20);
@@ -115,7 +115,7 @@ TEST_F(HashArrayMappedTrieTest, BitmapIndexedNodeInsertionTest) {
   EXPECT_EQ(trie.physicalGet(2).asEntry().first, 40);
   EXPECT_EQ(trie.physicalGet(2).asEntry().second, 4);
 
-  e = trie.insert(&hamt, 0, 0, 0, 0);
+  e = trie.insert(hamt._allocator, 0, 0, 0, 2, 0);
   EXPECT_EQ(trie._bitmap, 29); // 011101
   EXPECT_EQ(trie.size(), 4);
   EXPECT_EQ(trie.physicalGet(0).asEntry().first, 0);
@@ -127,7 +127,7 @@ TEST_F(HashArrayMappedTrieTest, BitmapIndexedNodeInsertionTest) {
   EXPECT_EQ(trie.physicalGet(3).asEntry().first, 40);
   EXPECT_EQ(trie.physicalGet(3).asEntry().second, 4);
 
-  e = trie.insert(&hamt, 5, 50, 5, 0);
+  e = trie.insert(hamt._allocator, 5, 50, 5, 2, 0);
   EXPECT_EQ(trie._bitmap, 61); // 111101
   EXPECT_EQ(trie.size(), 5);
   EXPECT_EQ(trie.physicalGet(0).asEntry().first, 0);
@@ -141,7 +141,7 @@ TEST_F(HashArrayMappedTrieTest, BitmapIndexedNodeInsertionTest) {
   EXPECT_EQ(trie.physicalGet(4).asEntry().first, 50);
   EXPECT_EQ(trie.physicalGet(4).asEntry().second, 5);
 
-  e = trie.insert(&hamt, 1, 10, 1, 0);
+  e = trie.insert(hamt._allocator, 1, 10, 1, 2, 0);
   EXPECT_EQ(trie._bitmap, 63); // 111111
   EXPECT_EQ(trie.size(), 6);
   EXPECT_EQ(trie.physicalGet(0).asEntry().first, 0);
@@ -157,7 +157,7 @@ TEST_F(HashArrayMappedTrieTest, BitmapIndexedNodeInsertionTest) {
   EXPECT_EQ(trie.physicalGet(5).asEntry().first, 50);
   EXPECT_EQ(trie.physicalGet(5).asEntry().second, 5);
 
-  e = trie.insert(&hamt, 31, 310, 31, 0);
+  e = trie.insert(hamt._allocator, 31, 310, 31, 2, 0);
   EXPECT_EQ(trie._bitmap, 63 | (0x1 << 31));
   EXPECT_EQ(trie.size(), 7);
   EXPECT_EQ(trie.physicalGet(6).asEntry().first, 310);
