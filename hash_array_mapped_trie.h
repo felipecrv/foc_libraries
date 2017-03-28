@@ -16,6 +16,7 @@
 #include <stack>
 
 #include "support.h"
+#include "allocator.h"
 
 #ifndef PUBLIC_IN_GTEST
 # ifdef GTEST
@@ -62,13 +63,33 @@ class BitmapTrieTemplate {
   }
 
  public:
+  ATTRIBUTE_ALWAYS_INLINE
   Node *allocate(Allocator &allocator, uint32_t capacity);
+
+  ATTRIBUTE_ALWAYS_INLINE
   void deallocate(Allocator &allocator);
+
+  void deallocateRecursively(Allocator&) noexcept;
+  void cloneRecursively(Allocator &, BitmapTrieTemplate &root);
+
+  void clear(Allocator &allocator) {
+    deallocateRecursively(allocator);
+    _bitmap = 0;
+    _capacity = 0;
+    _base = nullptr;
+  }
 
   // We allow the object to be uninitialized because we want to keep it inside a union.
   // Users of this class should call allocate and deallocate correctly.
   BitmapTrieTemplate() = default;
   BitmapTrieTemplate(BitmapTrieTemplate &&other) = default;
+
+  void swap(BitmapTrieTemplate& other) {
+    std::swap(_bitmap, other._bitmap);
+    std::swap(_capacity, other._capacity);
+    std::swap(_base, other._base);
+  }
+
   uint32_t size() const { return __builtin_popcount(_bitmap); }
   uint32_t capacity() const { return _capacity; }
   Node &physicalGet(uint32_t i) { return _base[i]; }
@@ -98,31 +119,11 @@ class NodeTemplate {
   } _either;
 
  public:
-  _BitmapTrie *BitmapTrie(Allocator &allocator, uint32_t capacity) {
-    _is_entry = false;
-    _either.trie.allocate(allocator, capacity);
-    return &_either.trie;
-  }
-
-  NodeTemplate& operator=(NodeTemplate&& other) {
-    _is_entry = other._is_entry;
-    if (_is_entry) {
-      Entry &rhs = *reinterpret_cast<Entry *>(&other._either.entry);
-      new (&_either.entry) Entry(std::move(rhs));
-    } else {
-      new (&_either.trie) _BitmapTrie(std::move(other.asTrie()));
-    }
-    return *this;
-  }
-
-  NodeTemplate(Entry &&entry) : _is_entry(true) { new (&_either.entry) Entry(entry); }
-
-  NodeTemplate& operator=(Entry&& other) {
-    _is_entry = true;
-    new (&_either.entry) Entry(other);
-    return *this;
-  }
-
+  ATTRIBUTE_ALWAYS_INLINE _BitmapTrie *BitmapTrie();
+  ATTRIBUTE_ALWAYS_INLINE _BitmapTrie *BitmapTrie(Allocator &allocator, uint32_t capacity);
+  NodeTemplate& operator=(NodeTemplate&& other);
+  NodeTemplate(Entry &&entry);
+  NodeTemplate& operator=(Entry&& other);
   bool isEntry() const { return _is_entry; }
 
   Entry& asEntry() {
@@ -137,12 +138,6 @@ class NodeTemplate {
 };
 
 }  // namespace detail
-
-class MallocAllocator {
- public:
-  void *allocate(size_t size, size_t) { return malloc(size); }
-  void deallocate(void *ptr, size_t) { free(ptr); }
-};
 
 template<
   class Key,
@@ -184,17 +179,22 @@ class HashArrayMappedTrie {
   Allocator _allocator;
 
  public:
-   HashArrayMappedTrie() : HashArrayMappedTrie(1) {} // TODO: change to 0?
+  ATTRIBUTE_ALWAYS_INLINE
+  HashArrayMappedTrie() : HashArrayMappedTrie(1) {} // TODO: change to 0?
 
   explicit HashArrayMappedTrie(
       size_t n,
       const hasher& hf = hasher(),
       const key_equal& eql = key_equal(),
       const allocator_type &a = allocator_type());
-  explicit HashArrayMappedTrie(const allocator_type&);
+
+  explicit HashArrayMappedTrie(const allocator_type& allocator);
+
   HashArrayMappedTrie(const HashArrayMappedTrie&);
   HashArrayMappedTrie(const HashArrayMappedTrie&, const allocator_type&);
-  HashArrayMappedTrie(HashArrayMappedTrie&&);
+
+  HashArrayMappedTrie(HashArrayMappedTrie&& other);
+
   HashArrayMappedTrie(HashArrayMappedTrie&&, const allocator_type&);
   /*HashArrayMappedTrie(
       initializer_list<value_type>,
@@ -226,15 +226,64 @@ class HashArrayMappedTrie {
     : HashArrayMappedTrie(il, n, hf, key_equal(), a) {}
   */
 
-  ~HashArrayMappedTrie();
-  /*
-  HashArrayMappedTrie& operator=(const HashArrayMappedTrie&);
-  HashArrayMappedTrie& operator=(HashArrayMappedTrie&&);
-  HashArrayMappedTrie& operator=(initializer_list<value_type>);
-  */
+  ~HashArrayMappedTrie() { _root.deallocateRecursively(_allocator); }
 
-  size_t size() const { return _count; }
+  HashArrayMappedTrie& operator=(const HashArrayMappedTrie& other) {
+    if (this != &other) {
+      _root.deallocateRecursively(_allocator);
+      _count = other._count;
+      _expected_count = other._expected_count;
+      _generation = other._generation;
+      _seed = other._seed;
+      _root = other._root;
+      _hasher = other._hasher;
+      _key_equal = other._key_equal;
+      _allocator = other._allocator; // TODO: can copy allocator?
+      _root.cloneRecursively(_allocator, other._root);
+    }
+    return *this;
+  }
+
+  HashArrayMappedTrie& operator=(HashArrayMappedTrie&& other) {
+    if (this != &other) {
+      _root.deallocateRecursively(_allocator);
+      _count = other._count;
+      _expected_count = other._expected_count;
+      _generation = other._generation;
+      _seed = other._seed;
+      _root = std::move(other._root);
+      _hasher = std::move(other._hasher);
+      _key_equal = std::move(other._key_equal);
+      _allocator = std::move(other._allocator); // TODO: can copy allocator?
+    }
+    return *this;
+  }
+
+  /* HashArrayMappedTrie& operator=(initializer_list<value_type>); */
+
+  allocator_type get_allocator() const { return _allocator; }
+
   bool empty() const { return _count == 0; }
+  size_t size() const { return _count; }
+
+  void clear() {
+    _count = 0;
+    _expected_count = 1;
+    _generation = 0;
+    _root.clear(_allocator);
+  }
+
+  // TODO: define out-of-line
+  void swap(HashArrayMappedTrie& other) {
+    std::swap(_count, other._count);
+    std::swap(_expected_count, other._expected_count);
+    std::swap(_generation, other._generation);
+    std::swap(_seed, other._seed);
+    std::swap(_hasher, other._hasher);
+    std::swap(_key_equal, other._key_equal);
+    std::swap(_allocator, other._allocator);
+    _root.swap(other._root);
+  }
 
   bool insert(const Key& key, const T& value) {
     uint32_t hash = hash32(key, _seed);
@@ -462,7 +511,7 @@ uint32_t hamt_allocation_size(uint32_t required, uint32_t generation, uint32_t l
   return guess;
 }
 
-// BitmapTrie
+// BitmapTrieTemplate {{{
 
 template<class Entry, class Allocator>
 NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insert(
@@ -530,8 +579,6 @@ BitmapTrieTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::inse
   return _base[i].BitmapTrie(allocator, capacity);
 }
 
-// Node
-
 template<class Entry, class Allocator>
 NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::allocate(
     Allocator &allocator, uint32_t capacity) {
@@ -549,13 +596,113 @@ template<class Entry, class Allocator>
 void BitmapTrieTemplate<Entry, Allocator>::deallocate(Allocator &allocator) {
   if (_base) {
     allocator.deallocate(_base, _capacity);
-    _base = nullptr;
   }
 }
 
+template<class Entry, class Allocator>
+void BitmapTrieTemplate<Entry, Allocator>::deallocateRecursively(Allocator &allocator) noexcept {
+  // Maximum stack size: 1/5 * log2(hamt.size()) * O(32)
+  std::stack<BitmapTrieTemplate> stack;
+  stack.push(std::move(*this));
+
+  while (!stack.empty()) {
+    BitmapTrieTemplate trie(std::move(stack.top()));
+    stack.pop();
+
+    uint32_t trie_size = trie.size();
+    if (trie_size) {
+      for (int i = trie_size - 1; i >= 0; i--) {
+        Node *node = &trie.physicalGet(i);
+        if (node->isEntry()) {
+          node->asEntry().~Entry();
+        } else {
+          stack.push(std::move(node->asTrie()));
+        }
+      }
+    }
+    trie.deallocate(allocator);
+  }
+}
+
+template<class Entry, class Allocator>
+void BitmapTrieTemplate<Entry, Allocator>::cloneRecursively(
+    Allocator &allocator, BitmapTrieTemplate &root) {
+  // Stack of pair<destination, source>
+  std::stack<std::pair<BitmapTrieTemplate*, BitmapTrieTemplate*>> stack;
+  stack.push(this, &root);
+
+  while (!stack.empty()) {
+    auto pair = stack.top();
+    stack.pop();
+    BitmapTrieTemplate *dest = pair.first;
+    BitmapTrieTemplate *source = pair.second;
+
+    dest->allocate(allocator, source->capacity());
+
+    int source_size = source->size();
+    if (source_size) {
+      for (int i = source_size - 1; i >= 0; i--) {
+        Node *source_node = &source->physicalGet(i);
+        Node *dest_node = &dest->physicalGet(i);
+        if (source_node->isEntry()) {
+          new (dest_node) Node(*source_node);
+        } else {
+          stack.push(dest_node->BitmapTrie(), &source_node->asTrie());
+        }
+      }
+    }
+  }
+}
+
+// }}} END of BitmapTrieTemplate
+
+// NodeTemplate {{{
+
+template<class Entry, class Allocator>
+BitmapTrieTemplate<Entry, Allocator> *NodeTemplate<Entry, Allocator>::BitmapTrie() {
+  _is_entry = false;
+  return &_either.trie;
+}
+
+template<class Entry, class Allocator>
+BitmapTrieTemplate<Entry, Allocator> *NodeTemplate<Entry, Allocator>::BitmapTrie(
+    Allocator &allocator, uint32_t capacity) {
+  auto trie = this->BitmapTrie();
+  trie->allocate(allocator, capacity);
+  return trie;
+}
+
+template<class Entry, class Allocator>
+NodeTemplate<Entry, Allocator>& NodeTemplate<Entry, Allocator>::operator=(
+      NodeTemplate<Entry, Allocator>&& other) {
+  _is_entry = other._is_entry;
+  if (_is_entry) {
+    Entry &rhs = *reinterpret_cast<Entry *>(&other._either.entry);
+    new (&_either.entry) Entry(std::move(rhs));
+  } else {
+    new (&_either.trie) _BitmapTrie(std::move(other.asTrie()));
+  }
+  return *this;
+}
+
+template<class Entry, class Allocator>
+NodeTemplate<Entry, Allocator>::NodeTemplate(Entry &&entry)
+ : _is_entry(true) { new (&_either.entry) Entry(entry); }
+
+template<class Entry, class Allocator>
+NodeTemplate<Entry, Allocator>& NodeTemplate<Entry, Allocator>::operator=(Entry&& other) {
+  _is_entry = true;
+  new (&_either.entry) Entry(other);
+  return *this;
+}
+
+// }}} END of NodeTemplate
+
 }  // namespace detail
 
-// HashArrayMappedTrie 
+// HashArrayMappedTrie {{{
+
+// HashArrayMappedTrie
 template<class Key, class T, class Hash, class KeyEqual, class Allocator>
 HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
     size_t n, const hasher& hf, const key_equal& eql, const allocator_type &a)
@@ -572,7 +719,8 @@ HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
 
 template<class Key, class T, class Hash, class KeyEqual, class Allocator>
 HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
-    const allocator_type& a) : _allocator(a) {}
+    const allocator_type& a)
+  : HashArrayMappedTrie(0, hasher(), key_equal(), a) {}
 
 template<class Key, class T, class Hash, class KeyEqual, class Allocator>
 HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
@@ -586,7 +734,15 @@ HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
 
 template<class Key, class T, class Hash, class KeyEqual, class Allocator>
 HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
-    HashArrayMappedTrie&& hamt) : HashArrayMappedTrie(hamt, allocator_type()) {}
+    HashArrayMappedTrie&& other)
+  : _count(other._count),
+  _expected_count(other._expected_count),
+  _generation(other._generation),
+  _seed(other._seed),
+  _root(std::move(other._root)),
+  _hasher(std::move(other._hasher)),
+  _key_equal(std::move(other._key_equal)),
+  _allocator(std::move(other._allocator)) {}
 
 template<class Key, class T, class Hash, class KeyEqual, class Allocator>
 HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
@@ -594,29 +750,6 @@ HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
   assert(false);
 }
 
-template<class Key, class T, class Hash, class KeyEqual, class Allocator>
-HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::~HashArrayMappedTrie() {
-  // Maximum stack size: 1/5 * log2(hamt.size()) * O(32)
-  std::stack<BitmapTrie> stack;
-  stack.push(std::move(_root));
-
-  while (!stack.empty()) {
-    BitmapTrie trie(std::move(stack.top()));
-    stack.pop();
-
-    uint32_t trie_size = trie.size();
-    if (trie_size) {
-      for (int i = trie_size - 1; i >= 0; i--) {
-        Node *node = &trie.physicalGet(i);
-        if (node->isEntry()) {
-          node->asEntry().~Entry();
-        } else {
-          stack.push(std::move(node->asTrie()));
-        }
-      }
-    }
-    trie.deallocate(_allocator);
-  }
-}
+// }}} End of HashArrayMappedTrie
 
 }  // namespace foc

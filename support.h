@@ -1,5 +1,4 @@
-#ifndef SUPPORT_H
-#define SUPPORT_H
+#pragma once
 
 #ifndef __has_feature
 # define __has_feature(x) 0
@@ -135,5 +134,3 @@ inline uint64_t next_power_of_2(uint64_t x) {
   x |= (x >> 32);
   return x + 1;
 }
-
-#endif  // SUPPORT_H
