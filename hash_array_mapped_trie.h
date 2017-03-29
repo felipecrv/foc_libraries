@@ -94,7 +94,9 @@ class BitmapTrieTemplate {
   uint32_t size() const { return __builtin_popcount(_bitmap); }
   uint32_t capacity() const { return _capacity; }
   Node &physicalGet(uint32_t i) { return _base[i]; }
+  const Node &physicalGet(uint32_t i) const { return _base[i]; }
   Node &logicalGet(uint32_t i) { return _base[physicalIndex(i)]; }
+  const Node &logicalGet(uint32_t i) const { return _base[physicalIndex(i)]; }
 
   bool logicalPositionTaken(uint32_t logical_index) const {
     assert(logical_index < 32);
@@ -138,7 +140,17 @@ class NodeTemplate {
     return *reinterpret_cast<Entry *>(&_either.entry);
   }
 
+  const Entry& asEntry() const {
+    assert(_is_entry && "Node should be an entry");
+    return *reinterpret_cast<const Entry *>(&_either.entry);
+  }
+
   _BitmapTrie& asTrie() {
+    assert(!_is_entry && "Node should be a trie");
+    return _either.trie;
+  }
+
+  const _BitmapTrie& asTrie() const {
     assert(!_is_entry && "Node should be a trie");
     return _either.trie;
   }
@@ -375,20 +387,20 @@ class HashArrayMappedTrie {
     return node_ptr != nullptr;
   }
 
-  const T *find(const Key& key) {
-    BitmapTrie *trie = &_root;
+  const Node *findNode(const Key& key) {
+    const BitmapTrie *trie = &_root;
     uint32_t seed = _seed;
     uint32_t hash = hash32(key, _seed);
     uint32_t hash_offset = 0;
     uint32_t t = hash & 0x1f;
 
     while (trie->logicalPositionTaken(t)) {
-      auto& node = trie->logicalGet(t);
-      if (node.isEntry()) {
-        auto& entry = node.asEntry();
+      const Node *node = &trie->logicalGet(t);
+      if (node->isEntry()) {
+        const auto& entry = node->asEntry();
         // Keys match!
         if (_key_equal(entry.first, key)) {
-          return &entry.second;
+          return node;
         }
         /* printf("%d -> %d\n", key, hash); */
         /* printf("%d -> %d\n", entry.first, hash32(entry.second, seed)); */
@@ -405,10 +417,18 @@ class HashArrayMappedTrie {
         hash = hash32(key, seed);
       }
 
-      trie = &node.asTrie();
+      trie = &node->asTrie();
       t = (hash >> hash_offset) & 0x1f;
     }
 
+    return nullptr;
+  }
+
+  const T *find(const Key& key) {
+    const Node *node = findNode(key);
+    if (node) {
+      return &node->asEntry().second;
+    }
     return nullptr;
   }
 
