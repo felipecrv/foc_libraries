@@ -20,7 +20,7 @@ class HashArrayMappedTrieTest : public testing::Test {
   }
 };
 
-TEST_F(HashArrayMappedTrieTest, LogicalToPhysicalIndexTranslationTest) {
+TEST_F(HashArrayMappedTrieTest, LogicalToPhysicalIndexTranslationOnEmptyBitmapTest) {
   HAMT::BitmapTrie trie;
 
   // All items will be stored at index=0 if the bitmap is empty
@@ -28,12 +28,21 @@ TEST_F(HashArrayMappedTrieTest, LogicalToPhysicalIndexTranslationTest) {
   for (int i = 0; i < 32; i++) {
     EXPECT_EQ(trie.physicalIndex(i), 0);
   }
+}
+
+TEST_F(HashArrayMappedTrieTest, LogicalZeroToPhysicalZeroIndexTranslationTest) {
+  HAMT::BitmapTrie trie;
+
   // For any bitmap, the logical index 0 will map to physical index 0.
   // (we test all bitmaps that contain a single bit)
   for (int i = 0; i < 32; i++) {
     trie._bitmap = 0x1 << i;
     EXPECT_EQ(trie.physicalIndex(0), 0);
   }
+}
+
+TEST_F(HashArrayMappedTrieTest, LogicalToPhysicalIndexTranslationTest) {
+  HAMT::BitmapTrie trie;
 
   trie._bitmap = 1; // 0001
   EXPECT_EQ(trie.physicalIndex(1), 1);
@@ -198,7 +207,7 @@ void print_bitmap_indexed_node(
 }
 
 void print_hamt(HAMT &hamt) {
-  print_bitmap_indexed_node(hamt.root(), "");
+  print_bitmap_indexed_node(hamt.root().asTrie(), "");
   putchar('\n');
 }
 
@@ -208,7 +217,7 @@ void print_stats(HAMT &hamt) {
   int stats[33];
   memset(stats, 0, sizeof(stats));
 
-  q.push(&hamt.root());
+  q.push(&hamt.root().asTrie());
   while (!q.empty()) {
     auto trie = q.front();
     q.pop();
