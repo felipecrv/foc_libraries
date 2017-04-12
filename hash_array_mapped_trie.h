@@ -113,7 +113,6 @@ class NodeTemplate {
  private:
   using _BitmapTrie = BitmapTrieTemplate<Entry, Allocator>;
 
-  bool _is_entry;
   NodeTemplate *_parent;
   union {
     struct {
@@ -134,26 +133,32 @@ class NodeTemplate {
   NodeTemplate& operator=(NodeTemplate&& other);
   NodeTemplate(Entry &&entry, NodeTemplate *parent);
   NodeTemplate& operator=(Entry&& other);
-  bool isEntry() const { return _is_entry; }
-  NodeTemplate *parent() const { return _parent; }
+
+  bool isEntry() const {
+    return (NodeTemplate *)((uintptr_t)_parent & (uintptr_t)0x1U);
+  }
+
+  NodeTemplate *parent() const {
+    return (NodeTemplate *)((uintptr_t)_parent & ~(uintptr_t)0x1U);
+  }
 
   Entry& asEntry() {
-    assert(_is_entry && "Node should be an entry");
+    assert(isEntry() && "Node should be an entry");
     return *reinterpret_cast<Entry *>(&_either.entry);
   }
 
   const Entry& asEntry() const {
-    assert(_is_entry && "Node should be an entry");
+    assert(isEntry() && "Node should be an entry");
     return *reinterpret_cast<const Entry *>(&_either.entry);
   }
 
   _BitmapTrie& asTrie() {
-    assert(!_is_entry && "Node should be a trie");
+    assert(!isEntry() && "Node should be a trie");
     return _either.trie;
   }
 
   const _BitmapTrie& asTrie() const {
-    assert(!_is_entry && "Node should be a trie");
+    assert(!isEntry() && "Node should be a trie");
     return _either.trie;
   }
 
@@ -762,7 +767,9 @@ void BitmapTrieTemplate<Entry, Allocator>::cloneRecursively(
 
 template<class Entry, class Allocator>
 NodeTemplate<Entry, Allocator> *NodeTemplate<Entry, Allocator>::BitmapTrie(NodeTemplate *parent) {
-  _is_entry = false;
+  // Make sure an even pointer was passed and this node is a trie -- !isEntry().
+  // The LSB is used to indicate if the node is an entry.
+  assert(((uintptr_t)parent & (uintptr_t)0x1) == 0);
   _parent = parent;
   return this;
 }
@@ -778,9 +785,9 @@ NodeTemplate<Entry, Allocator> *NodeTemplate<Entry, Allocator>::BitmapTrie(
 template<class Entry, class Allocator>
 NodeTemplate<Entry, Allocator>& NodeTemplate<Entry, Allocator>::operator=(
       NodeTemplate<Entry, Allocator>&& other) {
-  _is_entry = other._is_entry;
+  // The LSB of parent defines if this node will be an entry
   _parent = other._parent;
-  if (_is_entry) {
+  if (isEntry()) {
     Entry &rhs = *reinterpret_cast<Entry *>(&other._either.entry);
     new (&_either.entry) Entry(std::move(rhs));
   } else {
@@ -791,12 +798,14 @@ NodeTemplate<Entry, Allocator>& NodeTemplate<Entry, Allocator>::operator=(
 
 template<class Entry, class Allocator>
 NodeTemplate<Entry, Allocator>::NodeTemplate(Entry &&entry, NodeTemplate *parent)
- : _is_entry(true), _parent(parent) { new (&_either.entry) Entry(entry); }
+  : _parent((NodeTemplate *)((uintptr_t)parent | (uintptr_t)0x1)) {
+    new (&_either.entry) Entry(entry);
+}
 
 template<class Entry, class Allocator>
 NodeTemplate<Entry, Allocator>& NodeTemplate<Entry, Allocator>::operator=(Entry&& other) {
   assert(false);
-  _is_entry = true;
+  _parent |= (uintptr_t)0x1; // is an entry
   new (&_either.entry) Entry(other);
   return *this;
 }
