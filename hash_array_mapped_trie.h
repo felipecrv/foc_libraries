@@ -104,7 +104,7 @@ class BitmapTrieTemplate {
   }
 
   Node *insert(Allocator&, int logical_index, Entry &, Node *parent, uint32_t generation, uint32_t level);
-  BitmapTrieTemplate *insertTrie(Allocator&, Node *parent, int logical_index, uint32_t capacity);
+  Node *insertTrie(Allocator&, Node *parent, int logical_index, uint32_t capacity);
 };
 
 // A Node in the HAMT is a sum type of Entry and BitmapTrie (i.e. can be one or the other).
@@ -126,10 +126,10 @@ class NodeTemplate {
   NodeTemplate(NodeTemplate *parent) { BitmapTrie(parent); }
 
   ATTRIBUTE_ALWAYS_INLINE
-  _BitmapTrie *BitmapTrie(NodeTemplate *parent);
+  NodeTemplate *BitmapTrie(NodeTemplate *parent);
 
   ATTRIBUTE_ALWAYS_INLINE
-  _BitmapTrie *BitmapTrie(Allocator &allocator, NodeTemplate *parent, uint32_t capacity);
+  NodeTemplate *BitmapTrie(Allocator &allocator, NodeTemplate *parent, uint32_t capacity);
 
   NodeTemplate& operator=(NodeTemplate&& other);
   NodeTemplate(Entry &&entry, NodeTemplate *parent);
@@ -383,7 +383,7 @@ class HashArrayMappedTrie {
       _expected_count *= 2;
       _generation++;
     }
-    Node *node = insert(&_root.asTrie(), entry, nullptr, _seed, hash, 0, 0);
+    Node *node = insert(&_root, entry, _seed, hash, 0, 0);
     _count++;
 
     return node;
@@ -435,18 +435,17 @@ class HashArrayMappedTrie {
   }
 
   Node *insert(
-      BitmapTrie *trie,
+      Node *trie_node,
       Entry &new_entry,
-      Node *parent,
       uint32_t seed,
       uint32_t hash,
       uint32_t hash_offset,
       uint32_t level) {
     uint32_t t = (hash >> hash_offset) & 0x1f;
 
+    BitmapTrie *trie = &trie_node->asTrie();
     if (trie->logicalPositionTaken(t)) {
       Node *node = &trie->logicalGet(t);
-      assert(node->parent() == parent);
 
       if (node->isEntry()) {
         Entry *entry = &node->asEntry();
@@ -479,10 +478,10 @@ class HashArrayMappedTrie {
       }
 
       // The position stores a trie. Delegate insertion.
-      return insert(&node->asTrie(), new_entry, parent, seed, hash, hash_offset, level + 1);
+      return insert(node, new_entry, seed, hash, hash_offset, level + 1);
     }
 
-    return trie->insert(_allocator, t, new_entry, parent, _generation, level);
+    return trie->insert(_allocator, t, new_entry, trie_node, _generation, level);
   }
 
  private:
@@ -523,10 +522,10 @@ class HashArrayMappedTrie {
 
     if (UNLIKELY(old_entry_hash_slice == hash_slice)) {
       // Turn the old node into a trie that will store another trie -- the child trie.
-      BitmapTrie *trie = old_node->BitmapTrie(_allocator, old_node_parent, 1);
+      Node *node_trie = old_node->BitmapTrie(_allocator, old_node_parent, 1);
       // We guess that the two entries will be stored in a single trie,
       // so we initialize it with capacity for 2.
-      BitmapTrie *child_trie = trie->insertTrie(_allocator, /*parent*/old_node, hash_slice, 2);
+      Node *child_node = node_trie->asTrie().insertTrie(_allocator, /*parent*/old_node, hash_slice, 2);
 
       if (LIKELY(hash_offset < 25)) {
         hash_offset += 5;
@@ -537,21 +536,22 @@ class HashArrayMappedTrie {
         hash = hash32(new_entry.first, seed);
       }
 
-      /*--*/ insert(child_trie, old_entry, old_node, seed, old_entry_hash, hash_offset, level + 1);
-      return insert(child_trie, new_entry, old_node, seed,           hash, hash_offset, level + 1);
+      /*--*/ insert(child_node, old_entry, seed, old_entry_hash, hash_offset, level + 1);
+      return insert(child_node, new_entry, seed,           hash, hash_offset, level + 1);
     }
 
     Node *ret;
 
     // Turn the old node into a trie to fit the old and the new entry
     // in the order that avoid moving the entry that's inserted first.
-    auto new_trie = old_node->BitmapTrie(_allocator, old_node_parent, 2);
+    auto new_trie_node = old_node->BitmapTrie(_allocator, old_node_parent, 2);
+    auto new_trie = &new_trie_node->asTrie();
     if (old_entry_hash_slice < hash_slice) {
-      /*-*/ new_trie->insert(_allocator, old_entry_hash_slice, old_entry, old_node_parent, _generation, level);
-      ret = new_trie->insert(_allocator,           hash_slice, new_entry, old_node_parent, _generation, level);
+      /*-*/ new_trie->insert(_allocator, old_entry_hash_slice, old_entry, new_trie_node, _generation, level);
+      ret = new_trie->insert(_allocator,           hash_slice, new_entry, new_trie_node, _generation, level);
     } else {
-      ret = new_trie->insert(_allocator,           hash_slice, new_entry, old_node_parent, _generation, level);
-      /*-*/ new_trie->insert(_allocator, old_entry_hash_slice, old_entry, old_node_parent, _generation, level);
+      ret = new_trie->insert(_allocator,           hash_slice, new_entry, new_trie_node, _generation, level);
+      /*-*/ new_trie->insert(_allocator, old_entry_hash_slice, old_entry, new_trie_node, _generation, level);
     }
 
     return ret;
@@ -665,7 +665,7 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insert(
 }
 
 template<class Entry, class Allocator>
-BitmapTrieTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertTrie(
+NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertTrie(
     Allocator &allocator, Node *parent, int logical_index, uint32_t capacity) {
   assert(_capacity > size());
 
@@ -761,18 +761,18 @@ void BitmapTrieTemplate<Entry, Allocator>::cloneRecursively(
 // NodeTemplate {{{
 
 template<class Entry, class Allocator>
-BitmapTrieTemplate<Entry, Allocator> *NodeTemplate<Entry, Allocator>::BitmapTrie(NodeTemplate *parent) {
+NodeTemplate<Entry, Allocator> *NodeTemplate<Entry, Allocator>::BitmapTrie(NodeTemplate *parent) {
   _is_entry = false;
   _parent = parent;
-  return &_either.trie;
+  return this;
 }
 
 template<class Entry, class Allocator>
-BitmapTrieTemplate<Entry, Allocator> *NodeTemplate<Entry, Allocator>::BitmapTrie(
+NodeTemplate<Entry, Allocator> *NodeTemplate<Entry, Allocator>::BitmapTrie(
     Allocator &allocator, NodeTemplate* parent, uint32_t capacity) {
-  auto trie = this->BitmapTrie(parent);
-  trie->allocate(allocator, capacity);
-  return trie;
+  auto node = this->BitmapTrie(parent);
+  node->asTrie().allocate(allocator, capacity);
+  return this;
 }
 
 template<class Entry, class Allocator>
