@@ -134,9 +134,7 @@ class NodeTemplate {
   NodeTemplate(Entry &&entry, NodeTemplate *parent);
   NodeTemplate& operator=(Entry&& other);
 
-  bool isEntry() const {
-    return (NodeTemplate *)((uintptr_t)_parent & (uintptr_t)0x1U);
-  }
+  bool isEntry() const { return (uintptr_t)_parent & (uintptr_t)0x1U; }
 
   NodeTemplate *parent() const {
     return (NodeTemplate *)((uintptr_t)_parent & ~(uintptr_t)0x1U);
