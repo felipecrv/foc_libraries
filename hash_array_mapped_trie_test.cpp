@@ -20,8 +20,17 @@ class HashArrayMappedTrieTest : public testing::Test {
   }
 };
 
-TEST_F(HashArrayMappedTrieTest, LogicalToPhysicalIndexTranslationOnEmptyBitmapTest) {
-  HAMT::BitmapTrie trie;
+TEST_F(HashArrayMappedTrieTest, AllocationSizeCalculationTest) {
+  // Make sure the required value overrides the alloc
+  // size estimation for the generation and level.
+  for (uint32_t generation = 0; generation < 24; generation++) {
+    for (uint32_t level = 0; level < 8; level++) {
+      for (uint32_t required = 1; required <= 32; required++) {
+        EXPECT_TRUE(foc::detail::hamt_allocation_size(required, generation, level) >= required);
+      }
+    }
+  }
+}
 
   // All items will be stored at index=0 if the bitmap is empty
   trie._bitmap = 0; // 0000
