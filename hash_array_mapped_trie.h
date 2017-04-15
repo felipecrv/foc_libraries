@@ -503,34 +503,32 @@ class HashArrayMappedTrie {
   // This function will replace the node contents with a trie to
   // make more room for (key, value).
   Node *branchOff(
-      Node *old_node,
+      Node *node,
       Entry &new_entry,
       uint32_t seed,
       uint32_t hash,
       uint32_t hash_offset,
       uint32_t level) {
-    uint32_t old_entry_hash = hash32(old_node->asEntry().first, seed);
+    uint32_t old_entry_hash = hash32(node->asEntry().first, seed);
+    uint32_t old_entry_hash_slice = (old_entry_hash >> hash_offset) & 0x1f;
+    uint32_t hash_slice = (hash >> hash_offset) & 0x1f;
+
     // Make sure a collision happened at the parent trie
     if (hash_offset >= 5) {
       assert(((old_entry_hash >> (hash_offset - 5)) & 0x1f) ==
              ((hash >> (hash_offset - 5)) & 0x1f) &&
              "BranchOff should be used when collisions are found");
-      assert(old_node->isEntry() && "old_node should be an entry");
     }
 
-    uint32_t old_entry_hash_slice = (old_entry_hash >> hash_offset) & 0x1f;
-    uint32_t hash_slice = (hash >> hash_offset) & 0x1f;
-
     // Copy the old entry inside the old node because the node will turn into a trie.
-    Node *old_node_parent = old_node->parent();
-    Entry old_entry = std::move(old_node->asEntry());
+    Entry old_entry = std::move(node->asEntry());
 
     if (UNLIKELY(old_entry_hash_slice == hash_slice)) {
       // Turn the old node into a trie that will store another trie -- the child trie.
-      Node *node_trie = old_node->BitmapTrie(_allocator, old_node_parent, 1);
+      Node *node_trie = node->BitmapTrie(_allocator, node->parent(), 1);
       // We guess that the two entries will be stored in a single trie,
       // so we initialize it with capacity for 2.
-      Node *child_node = node_trie->asTrie().insertTrie(_allocator, /*parent*/old_node, hash_slice, 2);
+      Node *child_node = node_trie->asTrie().insertTrie(_allocator, /*parent*/node, hash_slice, 2);
 
       if (LIKELY(hash_offset < 25)) {
         hash_offset += 5;
@@ -549,7 +547,7 @@ class HashArrayMappedTrie {
 
     // Turn the old node into a trie to fit the old and the new entry
     // in the order that avoid moving the entry that's inserted first.
-    auto new_trie_node = old_node->BitmapTrie(_allocator, old_node_parent, 2);
+    auto new_trie_node = node->BitmapTrie(_allocator, node->parent(), 2);
     auto new_trie = &new_trie_node->asTrie();
     if (old_entry_hash_slice < hash_slice) {
       /*-*/ new_trie->insert(_allocator, old_entry_hash_slice, old_entry, new_trie_node, _generation, level);
