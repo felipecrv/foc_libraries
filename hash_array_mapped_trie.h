@@ -122,16 +122,19 @@ class NodeTemplate {
   } _either;
 
  public:
+  ATTRIBUTE_ALWAYS_INLINE
   NodeTemplate(NodeTemplate *parent) { BitmapTrie(parent); }
+  ATTRIBUTE_ALWAYS_INLINE
+  NodeTemplate(Entry &&entry, NodeTemplate *parent);
 
   ATTRIBUTE_ALWAYS_INLINE
   NodeTemplate *BitmapTrie(NodeTemplate *parent);
-
   ATTRIBUTE_ALWAYS_INLINE
   NodeTemplate *BitmapTrie(Allocator &allocator, NodeTemplate *parent, uint32_t capacity);
 
+  ATTRIBUTE_ALWAYS_INLINE
   NodeTemplate& operator=(NodeTemplate&& other);
-  NodeTemplate(Entry &&entry, NodeTemplate *parent);
+  ATTRIBUTE_ALWAYS_INLINE
   NodeTemplate& operator=(Entry&& other);
 
   bool isEntry() const { return (uintptr_t)_parent & (uintptr_t)0x1U; }
@@ -801,8 +804,7 @@ NodeTemplate<Entry, Allocator>::NodeTemplate(Entry &&entry, NodeTemplate *parent
 
 template<class Entry, class Allocator>
 NodeTemplate<Entry, Allocator>& NodeTemplate<Entry, Allocator>::operator=(Entry&& other) {
-  assert(false);
-  _parent |= (uintptr_t)0x1; // is an entry
+  _parent = (NodeTemplate *)((uintptr_t)_parent | (uintptr_t)0x1); // is an entry
   new (&_either.entry) Entry(other);
   return *this;
 }
