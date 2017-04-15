@@ -203,55 +203,6 @@ TEST_F(HashArrayMappedTrieTest, BitmapTrieInsertTest) {
   EXPECT_EQ(trie.physicalGet(6).asEntry().second, 31);
 }
 
-TEST_F(HashArrayMappedTrieTest, ParentTest) {
-  HAMT hamt;
-  const int64_t N = 45000;
-
-  // Insert many items into the HAMT
-  for (int64_t i = 0; i < N; i++) {
-    hamt.insert(i, i + 1);
-  }
-
-  // For each node (leave), make sure the root is reachable through the _parent
-  // pointers.
-  double height_sum = 0.0;
-  for (int64_t i = 0; i < N; i++) {
-    const HAMT::Node *node = hamt.findNode(i);
-    EXPECT_TRUE(node != nullptr);
-    EXPECT_TRUE(node->asEntry().first == i);
-    EXPECT_TRUE(node->asEntry().second == i + 1);
-
-    double height = 0.0;
-    do {
-      auto parent = node->parent();
-
-      // Make sure you can find the node from the parent
-      auto parent_trie = &parent->asTrie();
-      bool found_node = false;
-      for (uint32_t i = 0; i < parent_trie->size() && !found_node; i++) {
-        if (&parent_trie->logicalGet(i) == node) {
-          found_node = true;
-        }
-      }
-      if (!found_node) {
-        printf("%lld\n", i + 1);
-        print_hamt<std::hash<int64_t>>(hamt);
-        goto out;
-      }
-      EXPECT_TRUE(found_node);
-
-      node = parent;
-      height++;
-    } while (node != &hamt.root());
-
-    height_sum += height;
-  }
-out:
-
-  // Average height is less than 4
-  EXPECT_TRUE(height_sum / N < 4.0);
-}
-
 TEST_F(HashArrayMappedTrieTest, BitmapTrieInsertTrieTest) {
   HAMT::BitmapTrie trie;
   HAMT::Node parent(nullptr);
@@ -363,6 +314,55 @@ void print_stats(HAMT &hamt) {
     printf("%6d ", (int)(a * 100));
   }
   putchar('\n');
+}
+
+TEST_F(HashArrayMappedTrieTest, ParentTest) {
+  HAMT hamt;
+  const int64_t N = 45000;
+
+  // Insert many items into the HAMT
+  for (int64_t i = 0; i < N; i++) {
+    hamt.insert(i, i + 1);
+  }
+
+  // For each node (leave), make sure the root is reachable through the _parent
+  // pointers.
+  double height_sum = 0.0;
+  for (int64_t i = 0; i < N; i++) {
+    const HAMT::Node *node = hamt.findNode(i);
+    EXPECT_TRUE(node != nullptr);
+    EXPECT_TRUE(node->asEntry().first == i);
+    EXPECT_TRUE(node->asEntry().second == i + 1);
+
+    double height = 0.0;
+    do {
+      auto parent = node->parent();
+
+      // Make sure you can find the node from the parent
+      auto parent_trie = &parent->asTrie();
+      bool found_node = false;
+      for (uint32_t i = 0; i < parent_trie->size() && !found_node; i++) {
+        if (&parent_trie->logicalGet(i) == node) {
+          found_node = true;
+        }
+      }
+      if (!found_node) {
+        printf("%lld\n", i + 1);
+        print_hamt<std::hash<int64_t>>(hamt);
+        goto out;
+      }
+      EXPECT_TRUE(found_node);
+
+      node = parent;
+      height++;
+    } while (node != &hamt.root());
+
+    height_sum += height;
+  }
+out:
+
+  // Average height is less than 4
+  EXPECT_TRUE(height_sum / N < 4.0);
 }
 
 TEST_F(HashArrayMappedTrieTest, TopLevelInsertTest) {
