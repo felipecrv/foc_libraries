@@ -135,6 +135,7 @@ class NodeTemplate {
   NodeTemplate& operator=(Entry&& other);
 
   bool isEntry() const { return (uintptr_t)_parent & (uintptr_t)0x1U; }
+  bool isTrie() const { return !isEntry(); }
 
   NodeTemplate *parent() const {
     return (NodeTemplate *)((uintptr_t)_parent & ~(uintptr_t)0x1U);
@@ -151,12 +152,12 @@ class NodeTemplate {
   }
 
   _BitmapTrie& asTrie() {
-    assert(!isEntry() && "Node should be a trie");
+    assert(isTrie() && "Node should be a trie");
     return _either.trie;
   }
 
   const _BitmapTrie& asTrie() const {
-    assert(!isEntry() && "Node should be a trie");
+    assert(isTrie() && "Node should be a trie");
     return _either.trie;
   }
 
@@ -567,7 +568,7 @@ class HashArrayMappedTrie {
 
     for (uint32_t i = 0; i < trie.size(); i++) {
       Node &node = trie.physicalGet(i);
-      if (!node.isEntry()) {
+      if (node.isTrie()) {
         inner_nodes_count += 1 + countInnerNodes(node.asTrie());
       }
     }
