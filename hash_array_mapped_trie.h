@@ -114,14 +114,14 @@ class BitmapTrieTemplate {
 template<class Entry, class Allocator>
 class NodeTemplate {
  private:
-  using _BitmapTrie = BitmapTrieTemplate<Entry, Allocator>;
+  using BitmapTrieT = BitmapTrieTemplate<Entry, Allocator>;
 
   NodeTemplate *_parent;
   union {
     struct {
       alignas(alignof(Entry)) char buffer[sizeof(Entry)];
     } entry;
-    _BitmapTrie trie;
+    BitmapTrieT trie;
   } _either;
 
  public:
@@ -157,12 +157,12 @@ class NodeTemplate {
     return *reinterpret_cast<const Entry *>(&_either.entry);
   }
 
-  _BitmapTrie& asTrie() {
+  BitmapTrieT& asTrie() {
     assert(isTrie() && "Node should be a trie");
     return _either.trie;
   }
 
-  const _BitmapTrie& asTrie() const {
+  const BitmapTrieT& asTrie() const {
     assert(isTrie() && "Node should be a trie");
     return _either.trie;
   }
@@ -794,7 +794,7 @@ NodeTemplate<Entry, Allocator>& NodeTemplate<Entry, Allocator>::operator=(
     Entry &rhs = *reinterpret_cast<Entry *>(&other._either.entry);
     new (&_either.entry) Entry(std::move(rhs));
   } else {
-    new (&_either.trie) _BitmapTrie(std::move(other.asTrie()));
+    new (&_either.trie) BitmapTrieT(std::move(other.asTrie()));
   }
   return *this;
 }
