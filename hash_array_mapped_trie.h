@@ -176,46 +176,41 @@ class NodeTemplate {
 }  // namespace detail
 
 template<class Entry, class Allocator>
-class HashArrayMappedTrieForwardIterator {
+class HAMTConstForwardIterator {
  private:
-   detail::NodeTemplate<Entry, Allocator> *_node;
+  using Node = detail::NodeTemplate<Entry, Allocator>;
+  const Node *_node;
 
  public:
-  typedef std::forward_iterator_tag                        iterator_category;
-  typedef Entry                                   value_type;
-  /* typedef typename _NodeTypes::difference_type             difference_type; */
-  typedef value_type&                                      reference;
-  typedef Entry*                    pointer;
+  typedef std::forward_iterator_tag  iterator_category;
+  typedef Entry                      value_type;
+  typedef ptrdiff_t                  difference_type;
+  typedef const Entry&               reference;
+  typedef const Entry*               pointer;
 
-  ATTRIBUTE_ALWAYS_INLINE HashArrayMappedTrieForwardIterator() = default;
+  HAMTConstForwardIterator() noexcept : _node(nullptr) {}
+  HAMTConstForwardIterator(const Node *node) noexcept : _node(node) {}
+  HAMTConstForwardIterator(const HAMTConstForwardIterator& it) noexcept : _node(it._node) {}
 
-  ATTRIBUTE_ALWAYS_INLINE
-  HashArrayMappedTrieForwardIterator(detail::NodeTemplate<Entry, Allocator> *node) noexcept
-    : _node(node) {}
+  reference operator*() const noexcept { return _node->asEntry(); }
+  pointer operator->() const noexcept { return &_node->asEntry(); }
 
-  ATTRIBUTE_ALWAYS_INLINE reference operator*() const { return _node->asEntry(); }
-  ATTRIBUTE_ALWAYS_INLINE pointer operator->() const { return &_node->asEntry(); }
-
-  ATTRIBUTE_ALWAYS_INLINE HashArrayMappedTrieForwardIterator& operator++() {
+  HAMTConstForwardIterator& operator++() {
     _node = _node->nextEntryNode();
     return *this;
   }
 
-  ATTRIBUTE_ALWAYS_INLINE HashArrayMappedTrieForwardIterator operator++(int) {
-    HashArrayMappedTrieForwardIterator _this(_node);
-    _node = _node->nextEntryNode();
+  HAMTConstForwardIterator operator++(int) {
+    HAMTConstForwardIterator _this(_node);
+    ++(*this);
     return _this;
   }
 
-  friend ATTRIBUTE_ALWAYS_INLINE bool operator==(
-      const HashArrayMappedTrieForwardIterator& x,
-      const HashArrayMappedTrieForwardIterator& y) {
+  friend bool operator==(const HAMTConstForwardIterator& x, const HAMTConstForwardIterator& y) {
     return x._node == y._node;
   }
 
-  friend ATTRIBUTE_ALWAYS_INLINE bool operator!=(
-      const HashArrayMappedTrieForwardIterator& x,
-      const HashArrayMappedTrieForwardIterator& y) {
+  friend bool operator!=(const HAMTConstForwardIterator& x, const HAMTConstForwardIterator& y) {
     return x._node != y._node;
   }
 
@@ -238,31 +233,31 @@ class HashArrayMappedTrie {
  public:
   // Some std::unordered_map member types.
   //
-  // Notice that our Allocator is nothing like any std allocator!
-  // Because of that, size_type is defined as `size_t` and I didn't
-  // bother defining some allocator related types that exist in
-  // std::unordered_map (pointer, const_pointer...).
-  typedef Key                                                   key_type;
-  typedef T                                                     mapped_type;
-  typedef Hash                                                  hasher;
-  typedef KeyEqual                                              key_equal;
-  typedef Allocator                                             allocator_type;
-  typedef std::pair<const Key, T>                               value_type;
-  typedef value_type&                                           reference;
-  typedef const value_type&                                     const_reference;
-  typedef HashArrayMappedTrieForwardIterator<Entry, Allocator>  iterator;
-  /* typedef const HashArrayMappedTrieForwardIterator  const_iterator; */
+  // WARNING: our Allocator is nothing like any std allocator.
+  typedef Key                                               key_type;
+  typedef T                                                 mapped_type;
+  typedef Hash                                              hasher;
+  typedef KeyEqual                                          key_equal;
+  typedef Allocator                                         allocator_type;
+  typedef std::pair<const Key, T>                           value_type;
+  typedef size_t                                            size_type;
+  typedef std::pair<const Key, T>*                          pointer;
+  typedef const std::pair<const Key, T>*                    const_pointer;
+  typedef std::pair<const Key, T>&                          reference;
+  typedef const std::pair<const Key, T>&                    const_reference;
+  // typedef HAMTForwardIterator<Entry, Allocator>             iterator;
+  typedef const HAMTConstForwardIterator<Entry, Allocator>  iterator;
+  typedef const HAMTConstForwardIterator<Entry, Allocator>  const_iterator;
 
-  size_t _count;
-  uint32_t _seed;
+  size_type _count;
   Node _root;
+  uint32_t _seed;
   Hash _hasher;
   KeyEqual _key_equal;
   Allocator _allocator;
 
  public:
-  ATTRIBUTE_ALWAYS_INLINE
-  HashArrayMappedTrie() : HashArrayMappedTrie(1) {} // TODO: change to 0?
+  HashArrayMappedTrie() : HashArrayMappedTrie(1) {}
 
   explicit HashArrayMappedTrie(
       size_t n,
@@ -342,7 +337,7 @@ class HashArrayMappedTrie {
   allocator_type get_allocator() const { return _allocator; }
 
   bool empty() const { return _count == 0; }
-  size_t size() const { return _count; }
+  size_type size() const { return _count; }
   // We don't implement max_size()
 
   // template <class... Args> pair<iterator, bool> emplace(Args&&... args);
