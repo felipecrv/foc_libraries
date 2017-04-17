@@ -51,28 +51,25 @@ class NodeTemplate;
 // to compress the array as decribed in the paper.
 template<class Entry, class Allocator>
 class BitmapTrieTemplate {
- PUBLIC_IN_GTEST:
+ private:
   using Node = NodeTemplate<Entry, Allocator>;
-
   uint32_t _bitmap;
   uint32_t _capacity;
   Node *_base;
 
-  uint32_t physicalIndex(uint32_t logical_index) const {
-    assert(logical_index < 32);
-    uint32_t _bitmask = 0x1 << logical_index;
-    return __builtin_popcount(_bitmap & (_bitmask - 1));
-  }
-
  public:
+  // We allow the object to be uninitialized because we want to keep it inside a union.
+  // Users of this class should call allocate and deallocate correctly.
+  BitmapTrieTemplate() = default;
+  BitmapTrieTemplate(BitmapTrieTemplate &&other) = default;
+
   ATTRIBUTE_ALWAYS_INLINE
   Node *allocate(Allocator &allocator, uint32_t capacity);
-
   ATTRIBUTE_ALWAYS_INLINE
   void deallocate(Allocator &allocator);
 
-  void deallocateRecursively(Allocator&) noexcept;
   void cloneRecursively(Allocator &, BitmapTrieTemplate &root);
+  void deallocateRecursively(Allocator&) noexcept;
 
   void clear(Allocator &allocator) {
     deallocateRecursively(allocator);
@@ -81,15 +78,16 @@ class BitmapTrieTemplate {
     _base = nullptr;
   }
 
-  // We allow the object to be uninitialized because we want to keep it inside a union.
-  // Users of this class should call allocate and deallocate correctly.
-  BitmapTrieTemplate() = default;
-  BitmapTrieTemplate(BitmapTrieTemplate &&other) = default;
-
   void swap(BitmapTrieTemplate& other) {
     std::swap(_bitmap, other._bitmap);
     std::swap(_capacity, other._capacity);
     std::swap(_base, other._base);
+  }
+
+  uint32_t physicalIndex(uint32_t logical_index) const {
+    assert(logical_index < 32);
+    uint32_t _bitmask = 0x1 << logical_index;
+    return __builtin_popcount(_bitmap & (_bitmask - 1));
   }
 
   uint32_t size() const { return __builtin_popcount(_bitmap); }
@@ -106,6 +104,10 @@ class BitmapTrieTemplate {
 
   Node *insert(Allocator&, int logical_index, Entry &, Node *parent, size_t expected_hamt_size, uint32_t level);
   Node *insertTrie(Allocator&, Node *parent, int logical_index, uint32_t capacity);
+
+#ifdef GTEST
+  uint32_t &bitmap() { return _bitmap; }
+#endif
 };
 
 // A Node in the HAMT is a sum type of Entry and BitmapTrie (i.e. can be one or the other).
