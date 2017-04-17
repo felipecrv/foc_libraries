@@ -125,14 +125,14 @@ TEST_F(HashArrayMappedTrieTest, BitmapTrieInsertTest) {
   trie.allocate(allocator, 1);
 
   auto e = std::make_pair(40LL, 4LL);
-  trie.insert(allocator, 4, e, nullptr, 2, 0);
+  trie.insertEntry(allocator, 4, e, nullptr, 2, 0);
   EXPECT_EQ(trie.bitmap() , 16); // 010000
   EXPECT_EQ(trie.size(), 1);
   EXPECT_EQ(trie.physicalGet(0).asEntry().first, 40);
   EXPECT_EQ(trie.physicalGet(0).asEntry().second, 4);
 
   e = std::make_pair(20L, 2L);
-  trie.insert(allocator, 2, e, nullptr, 2, 0);
+  trie.insertEntry(allocator, 2, e, nullptr, 2, 0);
   EXPECT_EQ(trie.bitmap() , 20); // 010100
   EXPECT_EQ(trie.size(), 2);
   EXPECT_EQ(trie.physicalGet(0).asEntry().first, 20);
@@ -141,7 +141,7 @@ TEST_F(HashArrayMappedTrieTest, BitmapTrieInsertTest) {
   EXPECT_EQ(trie.physicalGet(1).asEntry().second, 4);
 
   e = std::make_pair(30L, 3L);
-  trie.insert(allocator, 3, e, nullptr, 2, 0);
+  trie.insertEntry(allocator, 3, e, nullptr, 2, 0);
   EXPECT_EQ(trie.bitmap() , 28); // 011100
   EXPECT_EQ(trie.size(), 3);
   EXPECT_EQ(trie.physicalGet(0).asEntry().first, 20);
@@ -152,7 +152,7 @@ TEST_F(HashArrayMappedTrieTest, BitmapTrieInsertTest) {
   EXPECT_EQ(trie.physicalGet(2).asEntry().second, 4);
 
   e = std::make_pair(0LL, 0LL);
-  trie.insert(allocator, 0, e, nullptr, 2, 0);
+  trie.insertEntry(allocator, 0, e, nullptr, 2, 0);
   EXPECT_EQ(trie.bitmap() , 29); // 011101
   EXPECT_EQ(trie.size(), 4);
   EXPECT_EQ(trie.physicalGet(0).asEntry().first, 0);
@@ -165,7 +165,7 @@ TEST_F(HashArrayMappedTrieTest, BitmapTrieInsertTest) {
   EXPECT_EQ(trie.physicalGet(3).asEntry().second, 4);
 
   e = std::make_pair(50LL, 5LL);
-  trie.insert(allocator, 5, e, nullptr, 2, 0);
+  trie.insertEntry(allocator, 5, e, nullptr, 2, 0);
   EXPECT_EQ(trie.bitmap() , 61); // 111101
   EXPECT_EQ(trie.size(), 5);
   EXPECT_EQ(trie.physicalGet(0).asEntry().first, 0);
@@ -180,7 +180,7 @@ TEST_F(HashArrayMappedTrieTest, BitmapTrieInsertTest) {
   EXPECT_EQ(trie.physicalGet(4).asEntry().second, 5);
 
   e = std::make_pair(10LL, 1LL);
-  trie.insert(allocator, 1, e, nullptr, 2, 0);
+  trie.insertEntry(allocator, 1, e, nullptr, 2, 0);
   EXPECT_EQ(trie.bitmap() , 63); // 111111
   EXPECT_EQ(trie.size(), 6);
   EXPECT_EQ(trie.physicalGet(0).asEntry().first, 0);
@@ -197,7 +197,7 @@ TEST_F(HashArrayMappedTrieTest, BitmapTrieInsertTest) {
   EXPECT_EQ(trie.physicalGet(5).asEntry().second, 5);
 
   e = std::make_pair(310LL, 31L);
-  trie.insert(allocator, 31, e, nullptr, 2, 0);
+  trie.insertEntry(allocator, 31, e, nullptr, 2, 0);
   EXPECT_EQ(trie.bitmap() , 63 | (0x1 << 31));
   EXPECT_EQ(trie.size(), 7);
   EXPECT_EQ(trie.physicalGet(6).asEntry().first, 310);
@@ -215,7 +215,7 @@ TEST_F(HashArrayMappedTrieTest, BitmapTrieInsertTrieTest) {
   EXPECT_EQ(trie.size(), 0);
 
   // Insert an entry and a trie to the trie
-  trie.insert(allocator, 0, entry, &parent, 0, 0);
+  trie.insertEntry(allocator, 0, entry, &parent, 0, 0);
   EXPECT_EQ(trie.size(), 1);
   trie.insertTrie(allocator, &parent, 1, capacity);
   EXPECT_EQ(trie.size(), 2);
@@ -367,7 +367,7 @@ TEST_F(HashArrayMappedTrieTest, ParentTest) {
 
   // Insert many items into the HAMT
   for (int64_t i = 0; i < N; i++) {
-    hamt.insert(i, i + 1);
+    hamt.insertKeyAndValue(i, i + 1);
   }
 
   // For each node (leave), make sure the root is reachable through the _parent
@@ -416,7 +416,7 @@ TEST_F(HashArrayMappedTrieTest, TopLevelInsertTest) {
     HAMT hamt;
     for (int64_t i = 1; i <= max; i++) {
       /* printf("%d:\n", i * 10); */
-      hamt.insert(i * 10, i);
+      hamt.insertKeyAndValue(i * 10, i);
       if (__builtin_popcount(i) == 1) {
         hamt.print();
       }
@@ -455,7 +455,7 @@ TEST_F(HashArrayMappedTrieTest, ParentTestWithBadHashFunction) {
 
   // Insert many items into the HAMT
   for (int64_t i = 0; i < N; i++) {
-    hamt.insert(i, i + 1);
+    hamt.insertKeyAndValue(i, i + 1);
     if (i == 10) {
       print_hamt<BadHashFunction>(hamt);
     }
