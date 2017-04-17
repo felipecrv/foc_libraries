@@ -23,10 +23,11 @@ class HashArrayMappedTrieTest : public testing::Test {
 TEST_F(HashArrayMappedTrieTest, AllocationSizeCalculationTest) {
   // Make sure the required value overrides the alloc
   // size estimation for the generation and level.
-  for (uint32_t generation = 0; generation < 24; generation++) {
+  for (size_t expected_hamt_size = 1; expected_hamt_size < 24; expected_hamt_size *= 2) {
     for (uint32_t level = 0; level < 8; level++) {
       for (uint32_t required = 1; required <= 32; required++) {
-        EXPECT_TRUE(foc::detail::hamt_allocation_size(required, generation, level) >= required);
+        EXPECT_TRUE(foc::detail::hamt_trie_allocation_size(required, expected_hamt_size, level) >= required);
+        EXPECT_TRUE(foc::detail::hamt_trie_allocation_size(required, expected_hamt_size, level) >= required);
       }
     }
   }

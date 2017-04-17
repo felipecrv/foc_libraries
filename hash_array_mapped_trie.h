@@ -41,7 +41,8 @@ namespace foc {
 
 namespace detail {
 
-uint32_t hamt_allocation_size(uint32_t required, uint32_t generation, uint32_t level);
+// expected_hamt_size is the expected_hamt_size after insertion
+uint32_t hamt_trie_allocation_size(uint32_t required, size_t expected_hamt_size, uint32_t level);
 
 template<class Entry, class Allocator>
 class NodeTemplate;
@@ -103,7 +104,7 @@ class BitmapTrieTemplate {
     return _bitmap & (0x1 << logical_index);
   }
 
-  Node *insert(Allocator&, int logical_index, Entry &, Node *parent, uint32_t generation, uint32_t level);
+  Node *insert(Allocator&, int logical_index, Entry &, Node *parent, size_t expected_hamt_size, uint32_t level);
   Node *insertTrie(Allocator&, Node *parent, int logical_index, uint32_t capacity);
 };
 
@@ -251,8 +252,6 @@ class HashArrayMappedTrie {
   /* typedef const HashArrayMappedTrieForwardIterator  const_iterator; */
 
   size_t _count;
-  size_t _expected_count;
-  uint32_t _generation;
   uint32_t _seed;
   Node _root;
   Hash _hasher;
@@ -313,8 +312,6 @@ class HashArrayMappedTrie {
     if (this != &other) {
       _root.asTrie().deallocateRecursively(_allocator);
       _count = other._count;
-      _expected_count = other._expected_count;
-      _generation = other._generation;
       _seed = other._seed;
       _root = other._root;
       _hasher = other._hasher;
@@ -329,8 +326,6 @@ class HashArrayMappedTrie {
     if (this != &other) {
       _root.asTrie().deallocateRecursively(_allocator);
       _count = other._count;
-      _expected_count = other._expected_count;
-      _generation = other._generation;
       _seed = other._seed;
       _root = std::move(other._root);
       _hasher = std::move(other._hasher);
@@ -365,16 +360,12 @@ class HashArrayMappedTrie {
 
   void clear() {
     _count = 0;
-    _expected_count = 1;
-    _generation = 0;
     _root.asTrie().clear(_allocator);
   }
 
   // TODO: define out-of-line
   void swap(HashArrayMappedTrie& other) {
     std::swap(_count, other._count);
-    std::swap(_expected_count, other._expected_count);
-    std::swap(_generation, other._generation);
     std::swap(_seed, other._seed);
     std::swap(_hasher, other._hasher);
     std::swap(_key_equal, other._key_equal);
@@ -385,11 +376,6 @@ class HashArrayMappedTrie {
   Node *insert(const Key& key, const T& value) {
     Entry entry(key, value);
     uint32_t hash = hash32(key, _seed);
-
-    if (_count >= _expected_count) {
-      _expected_count *= 2;
-      _generation++;
-    }
     Node *node = insert(&_root, entry, _seed, hash, 0, 0);
     _count++;
 
@@ -488,7 +474,7 @@ class HashArrayMappedTrie {
       return insert(node, new_entry, seed, hash, hash_offset, level + 1);
     }
 
-    return trie->insert(_allocator, t, new_entry, trie_node, _generation, level);
+    return trie->insert(_allocator, t, new_entry, trie_node, _count + 1, level);
   }
 
  private:
@@ -552,11 +538,11 @@ class HashArrayMappedTrie {
     auto new_trie_node = node->BitmapTrie(_allocator, node->parent(), 2);
     auto new_trie = &new_trie_node->asTrie();
     if (old_entry_hash_slice < hash_slice) {
-      /*-*/ new_trie->insert(_allocator, old_entry_hash_slice, old_entry, new_trie_node, _generation, level);
-      ret = new_trie->insert(_allocator,           hash_slice, new_entry, new_trie_node, _generation, level);
+      /*-*/ new_trie->insert(_allocator, old_entry_hash_slice, old_entry, new_trie_node, _count + 1, level);
+      ret = new_trie->insert(_allocator,           hash_slice, new_entry, new_trie_node, _count + 1, level);
     } else {
-      ret = new_trie->insert(_allocator,           hash_slice, new_entry, new_trie_node, _generation, level);
-      /*-*/ new_trie->insert(_allocator, old_entry_hash_slice, old_entry, new_trie_node, _generation, level);
+      ret = new_trie->insert(_allocator,           hash_slice, new_entry, new_trie_node, _count + 1, level);
+      /*-*/ new_trie->insert(_allocator, old_entry_hash_slice, old_entry, new_trie_node, _count + 1, level);
     }
 
     return ret;
@@ -589,8 +575,9 @@ class HashArrayMappedTrie {
 
 namespace detail {
 
-uint32_t hamt_allocation_size(uint32_t required, uint32_t generation, uint32_t level) {
-  assert(required <= 32);
+#ifdef HAMT_IMPLEMENTATION
+
+uint32_t hamt_trie_allocation_size(uint32_t required, size_t expected_hamt_size, uint32_t level) {
   // [level][generation]
   const static uint32_t alloc_sizes_by_level[][23] = {
     // 1  2  4  8  16  32  64  128 256  512 1024 2048 4096 8192 16384 32768 65536 2^17 2^18 2^19 2^20 2^21 2^22
@@ -605,12 +592,24 @@ uint32_t hamt_allocation_size(uint32_t required, uint32_t generation, uint32_t l
        1, 1, 2, 3, 5, 5, 8, 8, 8, 13, 13, 13, 13, 13, 21, 21, 21, 21, 21, 21, 21, 21, 29, 29, 29, 29, 29, 29, 29, 29, 32, 32, 32
   };
 
-  if (generation > 22) {
-    generation = 22;
-  }
+  assert(required > 0 && required <= 32);
+  assert(expected_hamt_size > 0);
+
+  uint32_t generation;  // ceil(log2(expected_hamt_size))
   if (level > 4) {
     level = 4;
+    generation = 0;
+  } else {
+    if (expected_hamt_size - 1 == 0) {
+      generation = 0;
+    } else {
+      generation = 64 - __builtin_clzll(expected_hamt_size - 1);
+      if (generation > 22) {
+        generation = 22;
+      }
+    }
   }
+
   uint32_t guess = alloc_sizes_by_level[level][generation];
   if (required > guess) {
     return alloc_sizes[required];
@@ -618,18 +617,20 @@ uint32_t hamt_allocation_size(uint32_t required, uint32_t generation, uint32_t l
   return guess;
 }
 
+#endif  // HAMT_IMPLEMENTATION
+
 // BitmapTrieTemplate {{{
 
 template<class Entry, class Allocator>
 NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insert(
-  Allocator &allocator, int logical_index, Entry &new_entry, Node *parent, uint32_t generation, uint32_t level) {
+  Allocator &allocator, int logical_index, Entry &new_entry, Node *parent, size_t expected_hamt_size, uint32_t level) {
   const uint32_t i = physicalIndex(logical_index);
   const uint32_t sz = this->size();
 
   uint32_t required = sz + 1;
   assert(required <= 32);
   if (required > _capacity) {
-    size_t alloc_size = hamt_allocation_size(required, generation, level);
+    size_t alloc_size = hamt_trie_allocation_size(required, expected_hamt_size, level);
 
     Node *new_base =
       static_cast<Node *>(allocator.allocate(alloc_size * sizeof(Node), alignof(Node)));
@@ -822,10 +823,7 @@ HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
   : _count(0), _root(nullptr), _hasher(hf), _key_equal(eql), _allocator(a) {
 
   _seed = static_cast<uint32_t>(FOC_GET_HASH_SEED);
-  _expected_count = (n > 0) ? next_power_of_2(n - 1) : 1;
-  _generation = 0; // FIX: log2 _expected_count
-
-  uint32_t alloc_size = detail::hamt_allocation_size(1, _generation, 0);
+  uint32_t alloc_size = detail::hamt_trie_allocation_size(1, (n > 0) ? n : 1, 0);
   assert(alloc_size >= 1);
   _root.asTrie().allocate(_allocator, alloc_size);
 }
@@ -849,8 +847,6 @@ template<class Key, class T, class Hash, class KeyEqual, class Allocator>
 HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
     HashArrayMappedTrie&& other)
   : _count(other._count),
-  _expected_count(other._expected_count),
-  _generation(other._generation),
   _seed(other._seed),
   _root(std::move(other._root)),
   _hasher(std::move(other._hasher)),
