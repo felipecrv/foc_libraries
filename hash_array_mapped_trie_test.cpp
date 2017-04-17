@@ -441,3 +441,55 @@ TEST_F(HashArrayMappedTrieTest, TopLevelInsertTest) {
     EXPECT_EQ(last_not_found, -1);
   }
 }
+
+struct BadHashFunction {
+  size_t operator()(int64_t key) const {
+    return ((size_t)key % 1024) * 0x3f3f3f3f;
+  }
+};
+
+TEST_F(HashArrayMappedTrieTest, ParentTestWithBadHashFunction) {
+  HashArrayMappedTrie<int64_t, int64_t, BadHashFunction> hamt;
+  const int64_t N = 64;
+
+  // Insert many items into the HAMT
+  for (int64_t i = 0; i < N; i++) {
+    hamt.insert(i, i + 1);
+    if (i == 10) {
+      print_hamt<BadHashFunction>(hamt);
+    }
+  }
+
+  // For each node (leave), make sure the root is reachable through the _parent
+  // pointers.
+  double height_sum = 0.0;
+  for (int64_t i = 0; i < N; i++) {
+    const HAMT::Node *node = hamt.findNode(i);
+    EXPECT_TRUE(node != nullptr);
+    EXPECT_TRUE(node->asEntry().first == i);
+    EXPECT_TRUE(node->asEntry().second == i + 1);
+
+    double height = 0.0;
+    do {
+      auto parent = node->parent();
+
+      // Make sure you can find the node from the parent
+      auto parent_trie = &parent->asTrie();
+      bool found_parent = false;
+      for (uint32_t i = 0; i < parent_trie->size() && !found_parent; i++) {
+        if (&parent_trie->logicalGet(i) == parent) {
+          found_parent = true;
+        }
+      }
+      EXPECT_TRUE(found_parent);
+
+      node = parent;
+      height++;
+    } while (node != &hamt.root());
+
+    height_sum += height;
+  }
+
+  // Average height is less than 4
+  EXPECT_TRUE(height_sum / N < 4.0);
+}
