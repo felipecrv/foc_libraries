@@ -522,10 +522,10 @@ class HashArrayMappedTrie {
 
     if (UNLIKELY(old_entry_hash_slice == hash_slice)) {
       // Turn the old node into a trie that will store another trie -- the child trie.
-      Node *node_trie = node->BitmapTrie(_allocator, node->parent(), 1);
+      Node *trie_node = node->BitmapTrie(_allocator, node->parent(), 1);
       // We guess that the two entries will be stored in a single trie,
       // so we initialize it with capacity for 2.
-      Node *child_node = node_trie->asTrie().insertTrie(_allocator, /*parent*/node, hash_slice, 2);
+      Node *child_node = trie_node->asTrie().insertTrie(_allocator, /*parent*/trie_node, hash_slice, 2);
 
       if (LIKELY(hash_offset < 25)) {
         hash_offset += 5;
@@ -541,19 +541,16 @@ class HashArrayMappedTrie {
     }
 
     Node *ret;
-
     // Turn the old node into a trie to fit the old and the new entry
     // in the order that avoid moving the entry that's inserted first.
-    auto new_trie_node = node->BitmapTrie(_allocator, node->parent(), 2);
-    auto new_trie = &new_trie_node->asTrie();
+    Node *trie_node = node->BitmapTrie(_allocator, node->parent(), 2);
     if (old_entry_hash_slice < hash_slice) {
-      /*-*/ new_trie->insertEntry(_allocator, old_entry_hash_slice, old_entry, new_trie_node, _count + 1, level);
-      ret = new_trie->insertEntry(_allocator,           hash_slice, new_entry, new_trie_node, _count + 1, level);
+      /*-*/ trie_node->asTrie().insertEntry(_allocator, old_entry_hash_slice, old_entry, trie_node, _count + 1, level);
+      ret = trie_node->asTrie().insertEntry(_allocator,           hash_slice, new_entry, trie_node, _count + 1, level);
     } else {
-      ret = new_trie->insertEntry(_allocator,           hash_slice, new_entry, new_trie_node, _count + 1, level);
-      /*-*/ new_trie->insertEntry(_allocator, old_entry_hash_slice, old_entry, new_trie_node, _count + 1, level);
+      ret = trie_node->asTrie().insertEntry(_allocator,           hash_slice, new_entry, trie_node, _count + 1, level);
+      /*-*/ trie_node->asTrie().insertEntry(_allocator, old_entry_hash_slice, old_entry, trie_node, _count + 1, level);
     }
-
     return ret;
   }
 
