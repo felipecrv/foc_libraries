@@ -105,7 +105,7 @@ class BitmapTrieTemplate {
   Node *insertEntry(
     Allocator&,
     int logical_index,
-    Entry &,
+    Entry&,
     Node *parent,
     size_t expected_hamt_size,
     uint32_t level);
@@ -443,34 +443,16 @@ class HashArrayMappedTrie {
       uint32_t hash,
       uint32_t hash_offset,
       uint32_t level) {
-    uint32_t t = (hash >> hash_offset) & 0x1f;
-
+    // Insert the entry directly in the trie if the hash_slice slot is empty.
+    uint32_t hash_slice = (hash >> hash_offset) & 0x1f;
     BitmapTrie *trie = &trie_node->asTrie();
-    if (trie->logicalPositionTaken(t)) {
-      Node *node = &trie->logicalGet(t);
+    if (UNLIKELY(!trie->logicalPositionTaken(hash_slice))) {
+      return trie->insertEntry(_allocator, hash_slice, new_entry, trie_node, _count + 1, level);
+    }
 
-      if (node->isEntry()) {
-        Entry *entry = &node->asEntry();
-        if (_key_equal(entry->first, new_entry.first)) {
-          // Keys match! Override the value.
-          entry->second = std::move(new_entry.second);
-          return node;
-        }
-
-        // Has to replace the entry with a trie, move this entry there and
-        // insert the new entry as well.
-
-        if (LIKELY(hash_offset < 25)) {
-          hash_offset += 5;
-        } else {
-          hash_offset = 0;
-          seed++;
-          hash = hash32(new_entry.first, seed);
-        }
-
-        return branchOff(node, new_entry, seed, hash, hash_offset, level + 1);
-      }
-
+    // If the Node in hash_slice is a trie, insert recursively.
+    Node *node = &trie->logicalGet(hash_slice);
+    if (node->isTrie()) {
       if (LIKELY(hash_offset < 25)) {
         hash_offset += 5;
       } else {
@@ -478,12 +460,36 @@ class HashArrayMappedTrie {
         seed++;
         hash = hash32(new_entry.first, seed);
       }
-
-      // The position stores a trie. Delegate insertion.
       return insertEntry(node, new_entry, seed, hash, hash_offset, level + 1);
     }
 
-    return trie->insertEntry(_allocator, t, new_entry, trie_node, _count + 1, level);
+    // If the Node is an entry and the key matches, override the value.
+    Entry *entry = &node->asEntry();
+    if (_key_equal(entry->first, new_entry.first)) {
+      // Keys match! Override the value.
+      entry->second = std::move(new_entry.second);
+      return node;
+    }
+
+    // Has to replace the entry with a trie.
+    // This new trie will contain the replaced_entry and the new_entry.
+    Entry replaced_entry(std::move(node->asEntry()));
+    trie_node = node->BitmapTrie(_allocator, node->parent(), 2);
+
+    if (LIKELY(hash_offset < 25)) {
+      hash_offset += 5;
+    } else {
+      hash_offset = 0;
+      seed++;
+      hash = hash32(new_entry.first, seed);
+    }
+
+    uint32_t old_entry_hash = hash32(replaced_entry.first, seed);
+    // uint32_t old_entry_hash_slice = (old_entry_hash >> hash_offset) & 0x1f;
+    // uint32_t hash_slice = (hash >> hash_offset) & 0x1f;
+    
+    /*--*/ insertEntry(trie_node, replaced_entry, seed, old_entry_hash, hash_offset, level + 1);
+    return insertEntry(trie_node,      new_entry, seed,           hash, hash_offset, level + 1);
   }
 
  private:
@@ -495,63 +501,6 @@ class HashArrayMappedTrie {
   uint32_t hash32(const Key &key, uint32_t seed) const {
     uint32_t hash = _hasher(key);
     return hash ^ seed;
-  }
-
-  // This function will replace the node contents with a trie to
-  // make more room for (key, value).
-  Node *branchOff(
-      Node *node,
-      Entry &new_entry,
-      uint32_t seed,
-      uint32_t hash,
-      uint32_t hash_offset,
-      uint32_t level) {
-    uint32_t old_entry_hash = hash32(node->asEntry().first, seed);
-    uint32_t old_entry_hash_slice = (old_entry_hash >> hash_offset) & 0x1f;
-    uint32_t hash_slice = (hash >> hash_offset) & 0x1f;
-
-    // Make sure a collision happened at the parent trie
-    if (hash_offset >= 5) {
-      assert(((old_entry_hash >> (hash_offset - 5)) & 0x1f) ==
-             ((hash >> (hash_offset - 5)) & 0x1f) &&
-             "BranchOff should be used when collisions are found");
-    }
-
-    // Copy the old entry inside the old node because the node will turn into a trie.
-    Entry old_entry = std::move(node->asEntry());
-
-    if (UNLIKELY(old_entry_hash_slice == hash_slice)) {
-      // Turn the old node into a trie that will store another trie -- the child trie.
-      Node *trie_node = node->BitmapTrie(_allocator, node->parent(), 1);
-      // We guess that the two entries will be stored in a single trie,
-      // so we initialize it with capacity for 2.
-      Node *child_node = trie_node->asTrie().insertTrie(_allocator, /*parent*/trie_node, hash_slice, 2);
-
-      if (LIKELY(hash_offset < 25)) {
-        hash_offset += 5;
-      } else {
-        hash_offset = 0;
-        seed++;
-        old_entry_hash = hash32(old_entry.first, seed);
-        hash = hash32(new_entry.first, seed);
-      }
-
-      /*--*/ insertEntry(child_node, old_entry, seed, old_entry_hash, hash_offset, level + 1);
-      return insertEntry(child_node, new_entry, seed,           hash, hash_offset, level + 1);
-    }
-
-    Node *ret;
-    // Turn the old node into a trie to fit the old and the new entry
-    // in the order that avoid moving the entry that's inserted first.
-    Node *trie_node = node->BitmapTrie(_allocator, node->parent(), 2);
-    if (old_entry_hash_slice < hash_slice) {
-      /*-*/ trie_node->asTrie().insertEntry(_allocator, old_entry_hash_slice, old_entry, trie_node, _count + 1, level);
-      ret = trie_node->asTrie().insertEntry(_allocator,           hash_slice, new_entry, trie_node, _count + 1, level);
-    } else {
-      ret = trie_node->asTrie().insertEntry(_allocator,           hash_slice, new_entry, trie_node, _count + 1, level);
-      /*-*/ trie_node->asTrie().insertEntry(_allocator, old_entry_hash_slice, old_entry, trie_node, _count + 1, level);
-    }
-    return ret;
   }
 
 #ifdef GTEST
@@ -629,7 +578,12 @@ uint32_t hamt_trie_allocation_size(uint32_t required, size_t expected_hamt_size,
 
 template<class Entry, class Allocator>
 NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertEntry(
-  Allocator &allocator, int logical_index, Entry &new_entry, Node *parent, size_t expected_hamt_size, uint32_t level) {
+    Allocator &allocator,
+    int logical_index,
+    Entry &new_entry,
+    Node *parent,
+    size_t expected_hamt_size,
+    uint32_t level) {
   const uint32_t i = physicalIndex(logical_index);
   const uint32_t sz = this->size();
 
