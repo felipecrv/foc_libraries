@@ -473,3 +473,26 @@ TEST_F(HashArrayMappedTrieTest, ParentTestWithBadHashFunction) {
     }
   }
 }
+
+struct IdentityFunction {
+  size_t operator()(int64_t key) const { return key; }
+};
+
+TEST_F(HashArrayMappedTrieTest, PhysicalIndexOfNodeInTrie) {
+  using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t, IdentityFunction>;
+  HAMT hamt;
+  hamt._seed = 0;
+  HAMT::Node *root = &hamt._root;
+  for (int64_t i = 31; i >= 0; i--) {
+    hamt.insertKeyAndValue(i, i);
+  }
+  for (uint32_t i = 0; i < 32; i++) {
+    EXPECT_EQ(root->asTrie().physicalIndex(i), i);
+    HAMT::Node *logical_node = &root->asTrie().logicalGet(i);
+    HAMT::Node *physical_node = &root->asTrie().physicalGet(i);
+    EXPECT_EQ(logical_node->asEntry().first, i);
+    EXPECT_EQ(logical_node, physical_node);
+    EXPECT_EQ(logical_node->parent(), root);
+    EXPECT_EQ(root->asTrie().physicalIndexOf(logical_node), i);
+  }
+}

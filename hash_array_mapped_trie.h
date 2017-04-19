@@ -102,6 +102,13 @@ class BitmapTrieTemplate {
     return _bitmap & (0x1 << logical_index);
   }
 
+  uint32_t physicalIndexOf(const Node *needle) const {
+    assert(needle);
+    assert(needle >= _base);
+    assert(needle <= _base + size());
+    return needle - _base;
+  }
+
   Node *insertEntry(
     Allocator&,
     int logical_index,
