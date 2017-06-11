@@ -11,16 +11,7 @@ using foc::HashArrayMappedTrie;
 
 using HAMT = HashArrayMappedTrie<int64_t, int64_t>;
 
-class HashArrayMappedTrieTest : public testing::Test {
- protected:
-  void SetUp() override {
-  }
-
-  void TearDown() override {
-  }
-};
-
-TEST_F(HashArrayMappedTrieTest, AllocationSizeCalculationTest) {
+TEST(HashArrayMappedTrieTest, AllocationSizeCalculationTest) {
   // Make sure the required value overrides the alloc
   // size estimation for the generation and level.
   for (size_t expected_hamt_size = 1; expected_hamt_size < 24; expected_hamt_size *= 2) {
@@ -33,7 +24,7 @@ TEST_F(HashArrayMappedTrieTest, AllocationSizeCalculationTest) {
   }
 }
 
-TEST_F(HashArrayMappedTrieTest, BitmatpTrieInitialization) {
+TEST(HashArrayMappedTrieTest, BitmatpTrieInitialization) {
   HAMT::BitmapTrie trie;
   MallocAllocator allocator;
 
@@ -54,7 +45,7 @@ TEST_F(HashArrayMappedTrieTest, BitmatpTrieInitialization) {
   }
 }
 
-TEST_F(HashArrayMappedTrieTest, LogicalZeroToPhysicalZeroIndexTranslationTest) {
+TEST(HashArrayMappedTrieTest, LogicalZeroToPhysicalZeroIndexTranslationTest) {
   HAMT::BitmapTrie trie;
 
   // For any bitmap, the logical index 0 will map to physical index 0.
@@ -65,7 +56,7 @@ TEST_F(HashArrayMappedTrieTest, LogicalZeroToPhysicalZeroIndexTranslationTest) {
   }
 }
 
-TEST_F(HashArrayMappedTrieTest, LogicalToPhysicalIndexTranslationTest) {
+TEST(HashArrayMappedTrieTest, LogicalToPhysicalIndexTranslationTest) {
   HAMT::BitmapTrie trie;
 
   trie.bitmap() = 1; // 0001
@@ -119,7 +110,7 @@ TEST_F(HashArrayMappedTrieTest, LogicalToPhysicalIndexTranslationTest) {
   EXPECT_EQ(trie.physicalIndex(31), 3);
 }
 
-TEST_F(HashArrayMappedTrieTest, BitmapTrieInsertTest) {
+TEST(HashArrayMappedTrieTest, BitmapTrieInsertTest) {
   HAMT::BitmapTrie trie;
   MallocAllocator allocator;
   trie.allocate(allocator, 1);
@@ -204,7 +195,7 @@ TEST_F(HashArrayMappedTrieTest, BitmapTrieInsertTest) {
   EXPECT_EQ(trie.physicalGet(6).asEntry().second, 31);
 }
 
-TEST_F(HashArrayMappedTrieTest, BitmapTrieInsertTrieTest) {
+TEST(HashArrayMappedTrieTest, BitmapTrieInsertTrieTest) {
   HAMT::BitmapTrie trie;
   HAMT::Node parent(nullptr);
   MallocAllocator allocator;
@@ -316,7 +307,7 @@ void print_stats(HAMT &hamt) {
   putchar('\n');
 }
 
-TEST_F(HashArrayMappedTrieTest, NodeInitializationAsBitmapTrieTest) {
+TEST(HashArrayMappedTrieTest, NodeInitializationAsBitmapTrieTest) {
   HAMT::Node parent(nullptr);
   EXPECT_EQ(parent.parent(), nullptr);
 
@@ -345,7 +336,7 @@ TEST_F(HashArrayMappedTrieTest, NodeInitializationAsBitmapTrieTest) {
   a_trie.deallocate(allocator);
 }
 
-TEST_F(HashArrayMappedTrieTest, NodeInitializationAsEntryTest) {
+TEST(HashArrayMappedTrieTest, NodeInitializationAsEntryTest) {
   HAMT::Node parent(nullptr);
 
   std::pair<int64_t, int64_t> entry = std::make_pair(2, 4);
@@ -409,7 +400,7 @@ void check_parent_pointers(HAMT &hamt) {
   EXPECT_TRUE(height_sum / hamt.size() < 4.0);
 }
 
-TEST_F(HashArrayMappedTrieTest, ParentTest) {
+TEST(HashArrayMappedTrieTest, ParentTest) {
   using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t>;
   HAMT hamt;
   const int64_t N = 2048;
@@ -421,7 +412,7 @@ TEST_F(HashArrayMappedTrieTest, ParentTest) {
   }
 }
 
-TEST_F(HashArrayMappedTrieTest, TopLevelInsertTest) {
+TEST(HashArrayMappedTrieTest, TopLevelInsertTest) {
   /* for (int max = 1; max <= 1048576; max *= 2) { */
   for (int64_t max = 65536; max <= 65536; max *= 2) {
     HAMT hamt;
@@ -460,7 +451,7 @@ struct BadHashFunction {
   }
 };
 
-TEST_F(HashArrayMappedTrieTest, ParentTestWithBadHashFunction) {
+TEST(HashArrayMappedTrieTest, ParentTestWithBadHashFunction) {
   HashArrayMappedTrie<int64_t, int64_t, BadHashFunction> hamt;
   const int64_t N = 64;
 
@@ -478,7 +469,7 @@ struct IdentityFunction {
   size_t operator()(int64_t key) const { return key; }
 };
 
-TEST_F(HashArrayMappedTrieTest, PhysicalIndexOfNodeInTrie) {
+TEST(HashArrayMappedTrieTest, PhysicalIndexOfNodeInTrie) {
   using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t, IdentityFunction>;
   HAMT hamt;
   hamt._seed = 0;
