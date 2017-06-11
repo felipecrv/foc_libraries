@@ -119,6 +119,8 @@ class BitmapTrieTemplate {
 
   Node *insertTrie(Allocator&, Node *parent, int logical_index, uint32_t capacity);
 
+  const Node *firstEntryNodeRecursively() const noexcept;
+
 #ifdef GTEST
   uint32_t &bitmap() { return _bitmap; }
 #endif
@@ -652,6 +654,19 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertTrie
   _bitmap |= 0x1 << logical_index;
 
   return _base[i].BitmapTrie(allocator, parent, capacity);
+}
+
+template<class Entry, class Allocator>
+const NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::firstEntryNodeRecursively() const noexcept {
+  const BitmapTrieTemplate *trie = this;
+  assert(trie->size() > 0);
+  for (;;) {
+    const Node &node = trie->physicalGet(0);
+    if (node.isEntry()) {
+      return &node;
+    }
+    trie = &node.asTrie();
+  }
 }
 
 template<class Entry, class Allocator>

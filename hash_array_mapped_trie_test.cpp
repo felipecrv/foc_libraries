@@ -56,6 +56,44 @@ TEST(HashArrayMappedTrieTest, LogicalZeroToPhysicalZeroIndexTranslationTest) {
   }
 }
 
+TEST(HashArrayMappedTrieTest, FirstEntryTest) {
+  HAMT::BitmapTrie trie;
+  MallocAllocator allocator;
+
+  std::pair<int64_t, int64_t> two(2, 2);
+  std::pair<int64_t, int64_t> three(3, 3);
+
+  // Insert two entrie into a trie and check the first
+  trie.allocate(allocator, 4);
+  trie.insertEntry(allocator, 2, two, nullptr, 4, 0);
+  EXPECT_TRUE(trie.logicalPositionTaken(2));
+  trie.insertEntry(allocator, 3, three, nullptr, 4, 0);
+  EXPECT_TRUE(trie.logicalPositionTaken(3));
+
+  const HAMT::Node *node = trie.firstEntryNodeRecursively();
+  EXPECT_EQ(node->asEntry().second, 2);
+}
+
+TEST(HashArrayMappedTrieTest, FirstEntryRecursivelyTest) {
+  HAMT::BitmapTrie trie;
+  MallocAllocator allocator;
+
+  std::pair<int64_t, int64_t> two(2, 2);
+  std::pair<int64_t, int64_t> three(3, 3);
+
+  // Isert an entry and a trie with an entry to cause recursion
+  trie.allocate(allocator, 4);
+  trie.insertEntry(allocator, 3, three, nullptr, 4, 0);
+  EXPECT_TRUE(trie.logicalPositionTaken(3));
+  HAMT::Node *child = trie.insertTrie(allocator, nullptr, 0, 1);
+  EXPECT_TRUE(trie.logicalPositionTaken(0));
+  child->asTrie().insertEntry(allocator, 0, two, nullptr, 1, 1);
+  EXPECT_TRUE(child->asTrie().logicalPositionTaken(0));
+
+  const HAMT::Node *node = trie.firstEntryNodeRecursively();
+  EXPECT_EQ(node->asEntry().second, 2);
+}
+
 TEST(HashArrayMappedTrieTest, LogicalToPhysicalIndexTranslationTest) {
   HAMT::BitmapTrie trie;
 
