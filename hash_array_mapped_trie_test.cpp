@@ -318,46 +318,6 @@ TEST(HashArrayMappedTrieTest, NodeInitializationAsEntryTest) {
   EXPECT_FALSE(node.isTrie());
 }
 
-template<class HAMT>
-void check_parent_pointers(HAMT &hamt) {
-  // From each trie node, check if its children point to the trie node.
-  EXPECT_EQ(hamt._root.parent(), nullptr);
-  std::queue<typename HAMT::Node *> q;
-  q.push(&hamt._root);
-  size_t bfs_count = 0;
-  while (!q.empty()) {
-    auto *node = q.front();
-    q.pop();
-    if (node->isTrie()) {
-      auto *trie = &node->asTrie();
-      for (uint32_t i = 0; i < trie->size(); i++) {
-        auto *child_node = &trie->physicalGet(i);
-        EXPECT_EQ(child_node->parent(), node);
-        if (child_node->isTrie()) {
-          q.push(child_node);
-        } else {
-          bfs_count++;
-        }
-      }
-    }
-  }
-  EXPECT_EQ(bfs_count, hamt.size());
-
-  // For each entry node (leave), make sure the root is reachable through the _parent
-  // pointers.
-  for (int64_t i = 0; i < hamt.size(); i++) {
-    const typename HAMT::Node *node = hamt.findNode(i);
-    EXPECT_TRUE(node != nullptr);
-    EXPECT_TRUE(node->asEntry().first == i);
-    EXPECT_TRUE(node->asEntry().second == i);
-
-    do {
-      // Make sure you can find the root from the node
-      node = node->parent();
-    } while (node != &hamt.root());
-  }
-}
-
 TEST(HashArrayMappedTrieTest, ParentTest) {
   using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t>;
   HAMT hamt;
