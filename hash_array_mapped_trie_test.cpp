@@ -345,26 +345,17 @@ void check_parent_pointers(HAMT &hamt) {
 
   // For each entry node (leave), make sure the root is reachable through the _parent
   // pointers.
-  double height_sum = 0.0;
   for (int64_t i = 0; i < hamt.size(); i++) {
     const typename HAMT::Node *node = hamt.findNode(i);
     EXPECT_TRUE(node != nullptr);
     EXPECT_TRUE(node->asEntry().first == i);
     EXPECT_TRUE(node->asEntry().second == i);
 
-    double height = 0.0;
     do {
       // Make sure you can find the root from the node
-      auto parent = node->parent();
-      node = parent;
-      height++;
+      node = node->parent();
     } while (node != &hamt.root());
-
-    height_sum += height;
   }
-
-  // Average height is less than 4
-  EXPECT_TRUE(height_sum / hamt.size() < 4.0);
 }
 
 TEST(HashArrayMappedTrieTest, ParentTest) {
