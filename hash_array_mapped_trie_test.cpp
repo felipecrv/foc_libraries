@@ -273,6 +273,50 @@ TEST(HashArrayMappedTrieTest, BitmapTrieInsertTrieTest) {
   EXPECT_EQ(child_trie_node.parent(), &parent);
 }
 
+TEST(HashArrayMappedTrieTest, NodeInitializationAsBitmapTrieTest) {
+  HAMT::Node parent(nullptr);
+  EXPECT_EQ(parent.parent(), nullptr);
+
+  HAMT::Node node(&parent);
+  EXPECT_TRUE(node.isTrie());
+  EXPECT_FALSE(node.isEntry());
+  EXPECT_EQ(node.parent(), &parent);
+
+  MallocAllocator allocator;
+  node.BitmapTrie(allocator, &parent, 2);
+  EXPECT_TRUE(node.isTrie());
+  EXPECT_FALSE(node.isEntry());
+  EXPECT_EQ(node.parent(), &parent);
+  auto &trie = node.asTrie();
+  EXPECT_EQ(trie.capacity(), 2);
+  EXPECT_EQ(trie.size(), 0);
+
+  HAMT::Node a_node(nullptr);
+  a_node = std::move(node);
+  EXPECT_EQ(a_node.parent(), &parent);
+  auto &a_trie = node.asTrie();
+  EXPECT_EQ(&trie.physicalGet(0), &a_trie.physicalGet(0));
+  EXPECT_EQ(a_trie.capacity(), 2);
+  EXPECT_EQ(a_trie.size(), 0);
+
+  a_trie.deallocate(allocator);
+}
+
+TEST(HashArrayMappedTrieTest, NodeInitializationAsEntryTest) {
+  HAMT::Node parent(nullptr);
+
+  std::pair<int64_t, int64_t> entry = std::make_pair(2, 4);
+  HAMT::Node node(std::move(entry), &parent);
+  EXPECT_TRUE(node.isEntry());
+  EXPECT_FALSE(node.isTrie());
+  EXPECT_EQ(node.parent(), &parent);
+
+  HAMT::Node a_node(nullptr);
+  a_node = std::move(entry);
+  EXPECT_TRUE(node.isEntry());
+  EXPECT_FALSE(node.isTrie());
+}
+
 template<class HAMT>
 void print_bitmap_indexed_node(typename HAMT::BitmapTrie &trie, std::string indent) {
   std::vector<typename HAMT::BitmapTrie *> tries;
@@ -343,50 +387,6 @@ void print_stats(HAMT &hamt) {
     printf("%6d ", (int)(a * 100));
   }
   putchar('\n');
-}
-
-TEST(HashArrayMappedTrieTest, NodeInitializationAsBitmapTrieTest) {
-  HAMT::Node parent(nullptr);
-  EXPECT_EQ(parent.parent(), nullptr);
-
-  HAMT::Node node(&parent);
-  EXPECT_TRUE(node.isTrie());
-  EXPECT_FALSE(node.isEntry());
-  EXPECT_EQ(node.parent(), &parent);
-
-  MallocAllocator allocator;
-  node.BitmapTrie(allocator, &parent, 2);
-  EXPECT_TRUE(node.isTrie());
-  EXPECT_FALSE(node.isEntry());
-  EXPECT_EQ(node.parent(), &parent);
-  auto &trie = node.asTrie();
-  EXPECT_EQ(trie.capacity(), 2);
-  EXPECT_EQ(trie.size(), 0);
-
-  HAMT::Node a_node(nullptr);
-  a_node = std::move(node);
-  EXPECT_EQ(a_node.parent(), &parent);
-  auto &a_trie = node.asTrie();
-  EXPECT_EQ(&trie.physicalGet(0), &a_trie.physicalGet(0));
-  EXPECT_EQ(a_trie.capacity(), 2);
-  EXPECT_EQ(a_trie.size(), 0);
-
-  a_trie.deallocate(allocator);
-}
-
-TEST(HashArrayMappedTrieTest, NodeInitializationAsEntryTest) {
-  HAMT::Node parent(nullptr);
-
-  std::pair<int64_t, int64_t> entry = std::make_pair(2, 4);
-  HAMT::Node node(std::move(entry), &parent);
-  EXPECT_TRUE(node.isEntry());
-  EXPECT_FALSE(node.isTrie());
-  EXPECT_EQ(node.parent(), &parent);
-
-  HAMT::Node a_node(nullptr);
-  a_node = std::move(entry);
-  EXPECT_TRUE(node.isEntry());
-  EXPECT_FALSE(node.isTrie());
 }
 
 template<class HAMT>
