@@ -118,3 +118,43 @@ static void check_parent_pointers(HAMT &hamt) {
     } while (node != &hamt.root());
   }
 }
+
+template<class HAMT>
+static void check_lookups(HAMT &hamt, int64_t n) {
+  for (int64_t i = 0; i < n; i++) {
+    auto found = hamt.find(i);
+    EXPECT_TRUE(found != nullptr);
+    EXPECT_EQ(*found, i);
+  }
+}
+
+// Custom hash functions used in tests
+
+struct BadHashFunction {
+  size_t operator()(int64_t key) const {
+    return ((size_t)key % 1024) * 0x3f3f3f3f;
+  }
+};
+
+struct IdentityFunction {
+  size_t operator()(int64_t key) const { return key; }
+};
+
+struct ConstantFunction {
+  size_t operator()(int64_t key) const { return 0x383f9f3a3b3c3d3f; }
+};
+
+// Parameterized test functions
+
+template<class HAMT>
+static void parent_test(int64_t n) {
+  HAMT hamt;
+
+  // Insert many items into the HAMT and check
+  // the parent pointers after every insertion.
+  for (int64_t i = 0; i < n; i++) {
+    hamt.insertKeyAndValue(i, i);
+    check_lookups(hamt, i + 1);
+    check_parent_pointers(hamt);
+  }
+}

@@ -320,14 +320,22 @@ TEST(HashArrayMappedTrieTest, NodeInitializationAsEntryTest) {
 
 TEST(HashArrayMappedTrieTest, ParentTest) {
   using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t>;
-  HAMT hamt;
-  const int64_t N = 2048;
+  parent_test<HAMT>(2048);
+}
 
-  // Insert many items into the HAMT
-  for (int64_t i = 0; i < N; i++) {
-    hamt.insertKeyAndValue(i, i);
-    check_parent_pointers(hamt);
-  }
+TEST(HashArrayMappedTrieTest, ParentTestWithBadHashFunction) {
+  using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t, BadHashFunction>;
+  parent_test<HAMT>(64);
+}
+
+TEST(HashArrayMappedTrieTest, ParentTestWithIdentityFunction) {
+  using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t, IdentityFunction>;
+  parent_test<HAMT>(2048);
+}
+
+TEST(HashArrayMappedTrieTest, ParentTestConstantFunction) {
+  using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t, ConstantFunction>;
+  parent_test<HAMT>(64);
 }
 
 TEST(HashArrayMappedTrieTest, TopLevelInsertTest) {
@@ -363,29 +371,14 @@ TEST(HashArrayMappedTrieTest, TopLevelInsertTest) {
   }
 }
 
-struct BadHashFunction {
-  size_t operator()(int64_t key) const {
-    return ((size_t)key % 1024) * 0x3f3f3f3f;
-  }
-};
 
-TEST(HashArrayMappedTrieTest, ParentTestWithBadHashFunction) {
-  HashArrayMappedTrie<int64_t, int64_t, BadHashFunction> hamt;
-  const int64_t N = 64;
-
-  // Insert many items into the HAMT
-  for (int64_t i = 0; i < N; i++) {
+TEST(HashArrayMappedTrieTest, ConstantHashFunctionTest) {
+  using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t, ConstantFunction>;
+  HAMT hamt;
+  for (int64_t i = 0; i < 32; i++) {
     hamt.insertKeyAndValue(i, i);
-    check_parent_pointers(hamt);
-    if (i == 10) {
-      print_hamt(hamt);
-    }
   }
 }
-
-struct IdentityFunction {
-  size_t operator()(int64_t key) const { return key; }
-};
 
 TEST(HashArrayMappedTrieTest, PhysicalIndexOfNodeInTrie) {
   using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t, IdentityFunction>;

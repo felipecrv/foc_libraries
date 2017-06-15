@@ -395,8 +395,10 @@ class HashArrayMappedTrie {
     Entry entry(key, value);
     uint32_t hash = hash32(key, _seed);
     Node *node = insertEntry(&_root, entry, _seed, hash, 0, 0);
+    if (node == nullptr) {
+      return nullptr;
+    }
     _count++;
-
     return node;
   }
 
@@ -496,9 +498,10 @@ class HashArrayMappedTrie {
     uint32_t old_entry_hash = hash32(replaced_entry.first, seed);
     // uint32_t old_entry_hash_slice = (old_entry_hash >> hash_offset) & 0x1f;
     // uint32_t hash_slice = (hash >> hash_offset) & 0x1f;
-    
-    /*--*/ insertEntry(trie_node, replaced_entry, seed, old_entry_hash, hash_offset, level + 1);
-    return insertEntry(trie_node,      new_entry, seed,           hash, hash_offset, level + 1);
+
+    auto replaced_node = insertEntry(trie_node, replaced_entry, seed, old_entry_hash, hash_offset, level + 1);
+    auto new_node =      insertEntry(trie_node,      new_entry, seed,           hash, hash_offset, level + 1);
+    return new_node == nullptr ? nullptr : replaced_node;
   }
 
  private:
@@ -634,9 +637,7 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertEntr
   _bitmap |= 0x1 << logical_index;
 
   // Insert at allocated position
-  new (&_base[i]) Node(std::move(new_entry), parent);
-
-  return &_base[i];
+  return new (&_base[i]) Node(std::move(new_entry), parent);
 }
 
 template<class Entry, class Allocator>
