@@ -117,7 +117,9 @@ class BitmapTrieTemplate {
     size_t expected_hamt_size,
     uint32_t level);
 
+#ifdef GTEST
   Node *insertTrie(Allocator&, Node *parent, int logical_index, uint32_t capacity);
+#endif  // GTEST
 
   const Node *firstEntryNodeRecursively() const noexcept;
 
@@ -327,6 +329,7 @@ class HashArrayMappedTrie {
 
   ~HashArrayMappedTrie() { _root.asTrie().deallocateRecursively(_allocator); }
 
+  // TODO: define out-of-line
   HashArrayMappedTrie& operator=(const HashArrayMappedTrie& other) {
     if (this != &other) {
       _root.asTrie().deallocateRecursively(_allocator);
@@ -341,6 +344,7 @@ class HashArrayMappedTrie {
     return *this;
   }
 
+  // TODO: define out-of-line
   HashArrayMappedTrie& operator=(HashArrayMappedTrie&& other) {
     if (this != &other) {
       _root.asTrie().deallocateRecursively(_allocator);
@@ -636,6 +640,8 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertEntr
   return new (&_base[i]) Node(new_entry, parent);
 }
 
+#ifdef GTEST
+
 template<class Entry, class Allocator>
 NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertTrie(
     Allocator &allocator, Node *parent, int logical_index, uint32_t capacity) {
@@ -652,6 +658,8 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertTrie
 
   return _base[i].BitmapTrie(allocator, parent, capacity);
 }
+
+#endif  // GTEST
 
 template<class Entry, class Allocator>
 const NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::firstEntryNodeRecursively() const noexcept {
