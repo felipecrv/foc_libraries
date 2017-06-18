@@ -162,8 +162,16 @@ static void parent_test(int64_t n) {
   // Insert many items into the HAMT and check
   // the parent pointers after every insertion.
   for (int64_t i = 0; i < n; i++) {
-    insertKeyAndValue(hamt, i, i);
-    check_lookups(hamt, i + 1);
+    auto it = insertKeyAndValue(hamt, i, i);
+    if (it == nullptr) {
+      auto not_found = hamt.find(i);
+      EXPECT_EQ(not_found, nullptr);
+    } else {
+      EXPECT_EQ(it->second, i);
+      auto found = hamt.find(i);
+      EXPECT_TRUE(found != nullptr);
+      EXPECT_EQ(*found, i);
+    }
     check_parent_pointers(hamt);
   }
 }

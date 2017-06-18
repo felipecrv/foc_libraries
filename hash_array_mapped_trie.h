@@ -373,7 +373,7 @@ class HashArrayMappedTrie {
     uint32_t hash = hash32(entry.first, _seed);
     Node *node = insertEntry(&_root, entry, _seed, hash, 0, 0);
     if (node == nullptr) {
-      return nullptr;
+      return iterator(nullptr);
     }
     _count++;
     return iterator(node);
@@ -475,33 +475,41 @@ class HashArrayMappedTrie {
     }
 
     // If the Node is an entry and the key matches, override the value.
-    Entry *entry = &node->asEntry();
-    if (_key_equal(entry->first, new_entry.first)) {
+    Entry *old_entry = &node->asEntry();
+    if (_key_equal(old_entry->first, new_entry.first)) {
       // Keys match! Override the value.
-      entry->second = std::move(new_entry.second);
+      old_entry->second = std::move(new_entry.second);
       return node;
     }
 
     // Has to replace the entry with a trie.
-    // This new trie will contain the replaced_entry and the new_entry.
-    Entry replaced_entry(std::move(node->asEntry()));
-    trie_node = node->BitmapTrie(_allocator, node->parent(), 2);
 
+    uint32_t old_entry_hash;
     if (LIKELY(hash_offset < 25)) {
       hash_offset += 5;
+      old_entry_hash = hash32(old_entry->first, seed);
     } else {
       hash_offset = 0;
       seed++;
       hash = hash32(new_entry.first, seed);
+      old_entry_hash = hash32(old_entry->first, seed);
+      if (UNLIKELY(hash == old_entry_hash)) {
+        return nullptr;
+      }
     }
 
-    uint32_t old_entry_hash = hash32(replaced_entry.first, seed);
-    // uint32_t old_entry_hash_slice = (old_entry_hash >> hash_offset) & 0x1f;
-    // uint32_t hash_slice = (hash >> hash_offset) & 0x1f;
+    // This new trie will contain the replaced_entry and the new_entry.
+    Entry replaced_entry(std::move(*old_entry));
+    trie_node = node->BitmapTrie(_allocator, node->parent(), 2);
 
     auto replaced_node = insertEntry(trie_node, replaced_entry, seed, old_entry_hash, hash_offset, level + 1);
-    auto new_node =      insertEntry(trie_node,      new_entry, seed,           hash, hash_offset, level + 1);
-    return new_node == nullptr ? nullptr : replaced_node;
+    if (replaced_node == nullptr) {
+      // If re-inserting the old entry fail for some reason, we give uo
+      // on inserting the new entry and restore the old entry.
+      *node = std::move(replaced_entry);
+      return nullptr;
+    }
+    return insertEntry(trie_node, new_entry, seed, hash, hash_offset, level + 1);
   }
 
  private:
