@@ -36,7 +36,7 @@ static void print_hamt(HAMT &hamt) {
   putchar('\n');
 }
 
-template<typename  HAMT>
+template<typename HAMT>
 static void print_stats(HAMT &hamt) {
   std::queue<typename HAMT::BitmapTrie *> q;
 
@@ -75,6 +75,15 @@ static void print_stats(HAMT &hamt) {
     printf("%6d ", (int)(a * 100));
   }
   putchar('\n');
+}
+
+template<typename HAMT>
+typename HAMT::iterator insertKeyAndValue(
+    HAMT& hamt,
+    const typename HAMT::value_type::first_type &key,
+    const typename HAMT::value_type::second_type &value) {
+  typename HAMT::value_type entry(key, value);
+  return hamt.insert(entry);
 }
 
 // Property checking helpers
@@ -153,7 +162,7 @@ static void parent_test(int64_t n) {
   // Insert many items into the HAMT and check
   // the parent pointers after every insertion.
   for (int64_t i = 0; i < n; i++) {
-    hamt.insertKeyAndValue(i, i);
+    insertKeyAndValue(hamt, i, i);
     check_lookups(hamt, i + 1);
     check_parent_pointers(hamt);
   }

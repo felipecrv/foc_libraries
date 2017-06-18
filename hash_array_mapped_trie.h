@@ -112,7 +112,7 @@ class BitmapTrieTemplate {
   Node *insertEntry(
     Allocator&,
     int logical_index,
-    Entry&,
+    const Entry&,
     Node *parent,
     size_t expected_hamt_size,
     uint32_t level);
@@ -142,7 +142,9 @@ class NodeTemplate {
 
  public:
   ATTRIBUTE_ALWAYS_INLINE
-  NodeTemplate(NodeTemplate *parent) { BitmapTrie(parent); }
+  explicit NodeTemplate(NodeTemplate *parent) { BitmapTrie(parent); }
+  ATTRIBUTE_ALWAYS_INLINE
+  NodeTemplate(const Entry &entry, NodeTemplate *parent);
   ATTRIBUTE_ALWAYS_INLINE
   NodeTemplate(Entry &&entry, NodeTemplate *parent);
 
@@ -363,8 +365,13 @@ class HashArrayMappedTrie {
   // template <class... Args> pair<iterator, bool> emplace(Args&&... args);
   // template <class... Args> iterator emplace_hint(const_iterator position, Args&&... args);
 
-  iterator insert(const value_type& obj) {
-    Node* node = insertKeyAndValue(obj.first, obj.second);
+  iterator insert(const value_type& entry) {
+    uint32_t hash = hash32(entry.first, _seed);
+    Node *node = insertEntry(&_root, entry, _seed, hash, 0, 0);
+    if (node == nullptr) {
+      return nullptr;
+    }
+    _count++;
     return iterator(node);
   }
 
@@ -389,17 +396,6 @@ class HashArrayMappedTrie {
     std::swap(_key_equal, other._key_equal);
     std::swap(_allocator, other._allocator);
     _root.swap(other._root);
-  }
-
-  Node *insertKeyAndValue(const Key& key, const T& value) {
-    Entry entry(key, value);
-    uint32_t hash = hash32(key, _seed);
-    Node *node = insertEntry(&_root, entry, _seed, hash, 0, 0);
-    if (node == nullptr) {
-      return nullptr;
-    }
-    _count++;
-    return node;
   }
 
   const Node *findNode(const Key& key) {
@@ -449,7 +445,7 @@ class HashArrayMappedTrie {
 
   Node *insertEntry(
       Node *trie_node,
-      Entry &new_entry,
+      const Entry &new_entry,
       uint32_t seed,
       uint32_t hash,
       uint32_t hash_offset,
@@ -592,7 +588,7 @@ template<class Entry, class Allocator>
 NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertEntry(
     Allocator &allocator,
     int logical_index,
-    Entry &new_entry,
+    const Entry &new_entry,
     Node *parent,
     size_t expected_hamt_size,
     uint32_t level) {
@@ -637,7 +633,7 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertEntr
   _bitmap |= 0x1 << logical_index;
 
   // Insert at allocated position
-  return new (&_base[i]) Node(std::move(new_entry), parent);
+  return new (&_base[i]) Node(new_entry, parent);
 }
 
 template<class Entry, class Allocator>
@@ -778,6 +774,12 @@ NodeTemplate<Entry, Allocator>& NodeTemplate<Entry, Allocator>::operator=(
     new (&_either.trie) BitmapTrieT(std::move(other.asTrie()));
   }
   return *this;
+}
+
+template<class Entry, class Allocator>
+NodeTemplate<Entry, Allocator>::NodeTemplate(const Entry &entry, NodeTemplate *parent)
+  : _parent((NodeTemplate *)((uintptr_t)parent | (uintptr_t)0x1)) {
+    new (&_either.entry) Entry(entry);
 }
 
 template<class Entry, class Allocator>

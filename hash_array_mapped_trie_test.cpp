@@ -344,7 +344,7 @@ TEST(HashArrayMappedTrieTest, TopLevelInsertTest) {
     HAMT hamt;
     for (int64_t i = 1; i <= max; i++) {
       /* printf("%d:\n", i * 10); */
-      hamt.insertKeyAndValue(i * 10, i);
+      insertKeyAndValue(hamt, i * 10, i);
       if (__builtin_popcount(i) == 1) {
         hamt.print();
       }
@@ -376,7 +376,7 @@ TEST(HashArrayMappedTrieTest, ConstantHashFunctionTest) {
   using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t, ConstantFunction>;
   HAMT hamt;
   for (int64_t i = 0; i < 32; i++) {
-    hamt.insertKeyAndValue(i, i);
+    insertKeyAndValue(hamt, i, i);
   }
 }
 
@@ -386,7 +386,7 @@ TEST(HashArrayMappedTrieTest, PhysicalIndexOfNodeInTrie) {
   hamt._seed = 0;
   HAMT::Node *root = &hamt._root;
   for (int64_t i = 31; i >= 0; i--) {
-    hamt.insertKeyAndValue(i, i);
+    insertKeyAndValue(hamt, i, i);
   }
   for (uint32_t i = 0; i < 32; i++) {
     EXPECT_EQ(root->asTrie().physicalIndex(i), i);
