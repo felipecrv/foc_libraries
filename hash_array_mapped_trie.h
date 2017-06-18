@@ -428,7 +428,7 @@ class HashArrayMappedTrie {
         hash_offset += 5;
       } else {
         hash_offset = 0;
-        seed++;
+        seed = next_seed(seed);
         hash = hash32(key, seed);
       }
 
@@ -468,7 +468,7 @@ class HashArrayMappedTrie {
         hash_offset += 5;
       } else {
         hash_offset = 0;
-        seed++;
+        seed = next_seed(seed);
         hash = hash32(new_entry.first, seed);
       }
       return insertEntry(node, new_entry, seed, hash, hash_offset, level + 1);
@@ -490,7 +490,7 @@ class HashArrayMappedTrie {
       old_entry_hash = hash32(old_entry->first, seed);
     } else {
       hash_offset = 0;
-      seed++;
+      seed = next_seed(seed);
       hash = hash32(new_entry.first, seed);
       old_entry_hash = hash32(old_entry->first, seed);
       if (UNLIKELY(hash == old_entry_hash)) {
@@ -518,9 +518,15 @@ class HashArrayMappedTrie {
     return static_cast<Node *>(ptr);
   }
 
+  uint32_t next_seed(uint32_t seed) const {
+    seed ^= seed << 13;
+    seed ^= seed >> 17;
+    seed ^= seed << 5;
+    return seed;
+  }
+
   uint32_t hash32(const Key &key, uint32_t seed) const {
-    uint32_t hash = _hasher(key);
-    return hash ^ seed;
+    return seed ^ _hasher(key);
   }
 
 #ifdef GTEST
