@@ -214,6 +214,8 @@ class HAMTConstForwardIterator {
 
   HAMTConstForwardIterator() noexcept : _node(nullptr) {}
   HAMTConstForwardIterator(const Node *node) noexcept : _node(node) {}
+  // TODO: implement HAMTForwardIterator
+  // HAMTConstForwardIterator(const HAMTForwardIterator& it) noexcept : _node(it._node) {}
   HAMTConstForwardIterator(const HAMTConstForwardIterator& it) noexcept : _node(it._node) {}
 
   reference operator*() const noexcept { return _node->asEntry(); }
@@ -269,6 +271,7 @@ class HashArrayMappedTrie {
   typedef const std::pair<const Key, T>*                    const_pointer;
   typedef std::pair<const Key, T>&                          reference;
   typedef const std::pair<const Key, T>&                    const_reference;
+  // TODO: implement HAMTForwardIterator
   // typedef HAMTForwardIterator<Entry, Allocator>             iterator;
   typedef const HAMTConstForwardIterator<Entry, Allocator>  iterator;
   typedef const HAMTConstForwardIterator<Entry, Allocator>  const_iterator;
