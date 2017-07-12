@@ -1,5 +1,6 @@
 #pragma once
 
+// clang-format off
 #ifndef __has_feature
 # define __has_feature(x) 0
 #endif
@@ -87,20 +88,21 @@
 #endif
 
 #if __has_builtin(__builtin_expect) || GNUC_PREREQ(4, 0, 0)
-#define LIKELY(EXPR) __builtin_expect((bool)(EXPR), true)
-#define UNLIKELY(EXPR) __builtin_expect((bool)(EXPR), false)
+# define LIKELY(EXPR) __builtin_expect((bool)(EXPR), true)
+# define UNLIKELY(EXPR) __builtin_expect((bool)(EXPR), false)
 #else
-#define LIKELY(EXPR) (EXPR)
-#define UNLIKELY(EXPR) (EXPR)
+# define LIKELY(EXPR) (EXPR)
+# define UNLIKELY(EXPR) (EXPR)
 #endif
+// clang-format on
 
 // isPodLike - This is a type trait that is used to determine whether a given
 // type can be copied around with memcpy instead of running ctors etc.
 template <typename T>
 struct isPodLike {
-  // std::is_trivially_copyable is available in libc++ with clang, libstdc++
-  // that comes with GCC 5.
-#if (__has_feature(is_trivially_copyable) && defined(_LIBCPP_VERSION)) ||      \
+// std::is_trivially_copyable is available in libc++ with clang, libstdc++
+// that comes with GCC 5.
+#if (__has_feature(is_trivially_copyable) && defined(_LIBCPP_VERSION)) || \
     (defined(__GNUC__) && __GNUC__ >= 5)
   // If the compiler supports the is_trivially_copyable trait use it, as it
   // matches the definition of isPodLike closely.
@@ -118,7 +120,7 @@ struct isPodLike {
 };
 
 // std::pair's are pod-like if their elements are.
-template<typename T, typename U>
+template <typename T, typename U>
 struct isPodLike<std::pair<T, U> > {
   static const bool value = isPodLike<T>::value && isPodLike<U>::value;
 };

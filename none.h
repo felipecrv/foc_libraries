@@ -11,6 +11,6 @@ namespace foc {
 /// similar types without having to spell out the specialization's name.
 enum class NoneType { None };
 const NoneType None = None;
-}
+}  // namespace foc
 
 #endif  // NONE_H
