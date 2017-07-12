@@ -1,0 +1,8 @@
+*.o
+*.dSYM
+tags
+
+build
+
+# Google Test (not a submodule to avoid bloating the repo)
+googletest
