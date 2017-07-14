@@ -6,25 +6,25 @@
 // http://infoscience.epfl.ch/record/64398
 #pragma once
 
-#include <cstdlib>
-#include <cstdint>
 #include <cassert>
-#include <string>
-#include <utility>
+#include <cstdint>
+#include <cstdlib>
 #include <functional>
 #include <initializer_list>
-#include <stack>
 #include <iterator>
+#include <stack>
+#include <string>
+#include <utility>
 
-#include "support.h"
 #include "allocator.h"
+#include "support.h"
 
 #ifndef PUBLIC_IN_GTEST
-# ifdef GTEST
-#  define PUBLIC_IN_GTEST public
-# else
-#  define PUBLIC_IN_GTEST private
-# endif
+#ifdef GTEST
+#define PUBLIC_IN_GTEST public
+#else
+#define PUBLIC_IN_GTEST private
+#endif
 #endif
 
 // This needs to be a per-execution seed to avoid denial-of-service attacks
@@ -34,7 +34,7 @@
 // Users of this library can define this macro before including the file to be
 // any expression (e.g. a function call) that returns a 64-bit seed.
 #ifndef FOC_GET_HASH_SEED
-# define FOC_GET_HASH_SEED 0xff51afd7ed558ccdULL
+#define FOC_GET_HASH_SEED 0xff51afd7ed558ccdULL
 #endif
 
 namespace foc {
@@ -44,12 +44,12 @@ namespace detail {
 // expected_hamt_size is the expected_hamt_size after insertion
 uint32_t hamt_trie_allocation_size(uint32_t required, size_t expected_hamt_size, uint32_t level);
 
-template<class Entry, class Allocator>
+template <class Entry, class Allocator>
 class NodeTemplate;
 
 // The root of a trie that can contain up to 32 Nodes. A bitmap is used
 // to compress the array as decribed in the paper.
-template<class Entry, class Allocator>
+template <class Entry, class Allocator>
 class BitmapTrieTemplate {
  private:
   using Node = NodeTemplate<Entry, Allocator>;
@@ -69,7 +69,7 @@ class BitmapTrieTemplate {
   void deallocate(Allocator &allocator);
 
   void cloneRecursively(Allocator &, BitmapTrieTemplate &root);
-  void deallocateRecursively(Allocator&) noexcept;
+  void deallocateRecursively(Allocator &) noexcept;
 
   void clear(Allocator &allocator) {
     deallocateRecursively(allocator);
@@ -78,7 +78,7 @@ class BitmapTrieTemplate {
     _base = nullptr;
   }
 
-  void swap(BitmapTrieTemplate& other) {
+  void swap(BitmapTrieTemplate &other) {
     std::swap(_bitmap, other._bitmap);
     std::swap(_capacity, other._capacity);
     std::swap(_base, other._base);
@@ -109,16 +109,15 @@ class BitmapTrieTemplate {
     return needle - _base;
   }
 
-  Node *insertEntry(
-    Allocator&,
-    int logical_index,
-    const Entry&,
-    Node *parent,
-    size_t expected_hamt_size,
-    uint32_t level);
+  Node *insertEntry(Allocator &,
+                    int logical_index,
+                    const Entry &,
+                    Node *parent,
+                    size_t expected_hamt_size,
+                    uint32_t level);
 
 #ifdef GTEST
-  Node *insertTrie(Allocator&, Node *parent, int logical_index, uint32_t capacity);
+  Node *insertTrie(Allocator &, Node *parent, int logical_index, uint32_t capacity);
 #endif  // GTEST
 
   const Node *firstEntryNodeRecursively() const noexcept;
@@ -129,7 +128,7 @@ class BitmapTrieTemplate {
 };
 
 // A Node in the HAMT is a sum type of Entry and BitmapTrie (i.e. can be one or the other).
-template<class Entry, class Allocator>
+template <class Entry, class Allocator>
 class NodeTemplate {
  private:
   using BitmapTrieT = BitmapTrieTemplate<Entry, Allocator>;
@@ -156,9 +155,9 @@ class NodeTemplate {
   NodeTemplate *BitmapTrie(Allocator &allocator, NodeTemplate *parent, uint32_t capacity);
 
   ATTRIBUTE_ALWAYS_INLINE
-  NodeTemplate& operator=(NodeTemplate&& other);
+  NodeTemplate &operator=(NodeTemplate &&other);
   ATTRIBUTE_ALWAYS_INLINE
-  NodeTemplate& operator=(Entry&& other);
+  NodeTemplate &operator=(Entry &&other);
 
   bool isEntry() const { return (uintptr_t)_parent & (uintptr_t)0x1U; }
   bool isTrie() const { return !isEntry(); }
@@ -167,26 +166,24 @@ class NodeTemplate {
     return (NodeTemplate *)((uintptr_t)_parent & ~(uintptr_t)0x1U);
   }
 
-  NodeTemplate *parent() {
-    return (NodeTemplate *)((uintptr_t)_parent & ~(uintptr_t)0x1U);
-  }
+  NodeTemplate *parent() { return (NodeTemplate *)((uintptr_t)_parent & ~(uintptr_t)0x1U); }
 
-  Entry& asEntry() {
+  Entry &asEntry() {
     assert(isEntry() && "Node should be an entry");
     return *reinterpret_cast<Entry *>(&_either.entry);
   }
 
-  const Entry& asEntry() const {
+  const Entry &asEntry() const {
     assert(isEntry() && "Node should be an entry");
     return *reinterpret_cast<const Entry *>(&_either.entry);
   }
 
-  BitmapTrieT& asTrie() {
+  BitmapTrieT &asTrie() {
     assert(isTrie() && "Node should be a trie");
     return _either.trie;
   }
 
-  const BitmapTrieT& asTrie() const {
+  const BitmapTrieT &asTrie() const {
     assert(isTrie() && "Node should be a trie");
     return _either.trie;
   }
@@ -199,29 +196,31 @@ class NodeTemplate {
 
 }  // namespace detail
 
-template<class Entry, class Allocator>
+template <class Entry, class Allocator>
 class HAMTConstForwardIterator {
  private:
   using Node = detail::NodeTemplate<Entry, Allocator>;
   const Node *_node;
 
  public:
+  // clang-format off
   typedef std::forward_iterator_tag  iterator_category;
   typedef Entry                      value_type;
   typedef ptrdiff_t                  difference_type;
   typedef const Entry&               reference;
   typedef const Entry*               pointer;
+  // clang-format on
 
   HAMTConstForwardIterator() noexcept : _node(nullptr) {}
   HAMTConstForwardIterator(const Node *node) noexcept : _node(node) {}
   // TODO: implement HAMTForwardIterator
   // HAMTConstForwardIterator(const HAMTForwardIterator& it) noexcept : _node(it._node) {}
-  HAMTConstForwardIterator(const HAMTConstForwardIterator& it) noexcept : _node(it._node) {}
+  HAMTConstForwardIterator(const HAMTConstForwardIterator &it) noexcept : _node(it._node) {}
 
   reference operator*() const noexcept { return _node->asEntry(); }
   pointer operator->() const noexcept { return &_node->asEntry(); }
 
-  HAMTConstForwardIterator& operator++() {
+  HAMTConstForwardIterator &operator++() {
     _node = _node->nextEntryNode();
     return *this;
   }
@@ -232,27 +231,30 @@ class HAMTConstForwardIterator {
     return _this;
   }
 
-  friend bool operator==(const HAMTConstForwardIterator& x, const HAMTConstForwardIterator& y) {
+  friend bool operator==(const HAMTConstForwardIterator &x, const HAMTConstForwardIterator &y) {
     return x._node == y._node;
   }
 
-  friend bool operator!=(const HAMTConstForwardIterator& x, const HAMTConstForwardIterator& y) {
+  friend bool operator!=(const HAMTConstForwardIterator &x, const HAMTConstForwardIterator &y) {
     return x._node != y._node;
   }
 
-  template <class, class, class, class, class> friend class HashArrayMappedTrie;
-  template <class, class> friend class NodeTemplate;
+  template <class, class, class, class, class>
+  friend class HashArrayMappedTrie;
+  template <class, class>
+  friend class NodeTemplate;
 };
 
-template<
-  class Key,
-  class T,
-  class Hash = std::hash<Key>,
-  class KeyEqual = std::equal_to<Key>,
-  class Allocator = MallocAllocator>
+template <class Key,
+          class T,
+          class Hash = std::hash<Key>,
+          class KeyEqual = std::equal_to<Key>,
+          class Allocator = MallocAllocator>
 class HashArrayMappedTrie {
+  // clang-format off
  PUBLIC_IN_GTEST:
   using Entry = std::pair<Key, T>;
+  // clang-format on
   using BitmapTrie = detail::BitmapTrieTemplate<Entry, Allocator>;
   using Node = detail::NodeTemplate<Entry, Allocator>;
 
@@ -260,6 +262,7 @@ class HashArrayMappedTrie {
   // Some std::unordered_map member types.
   //
   // WARNING: our Allocator is nothing like any std allocator.
+  // clang-format off
   typedef Key                                               key_type;
   typedef T                                                 mapped_type;
   typedef Hash                                              hasher;
@@ -275,6 +278,7 @@ class HashArrayMappedTrie {
   // typedef HAMTForwardIterator<Entry, Allocator>             iterator;
   typedef const HAMTConstForwardIterator<Entry, Allocator>  iterator;
   typedef const HAMTConstForwardIterator<Entry, Allocator>  const_iterator;
+  // clang-format on
 
   size_type _count;
   Node _root;
@@ -286,20 +290,19 @@ class HashArrayMappedTrie {
  public:
   HashArrayMappedTrie() : HashArrayMappedTrie(1) {}
 
-  explicit HashArrayMappedTrie(
-      size_t n,
-      const hasher& hf = hasher(),
-      const key_equal& eql = key_equal(),
-      const allocator_type &a = allocator_type());
+  explicit HashArrayMappedTrie(size_t n,
+                               const hasher &hf = hasher(),
+                               const key_equal &eql = key_equal(),
+                               const allocator_type &a = allocator_type());
 
-  explicit HashArrayMappedTrie(const allocator_type& allocator);
+  explicit HashArrayMappedTrie(const allocator_type &allocator);
 
-  HashArrayMappedTrie(const HashArrayMappedTrie&);
-  HashArrayMappedTrie(const HashArrayMappedTrie&, const allocator_type&);
+  HashArrayMappedTrie(const HashArrayMappedTrie &);
+  HashArrayMappedTrie(const HashArrayMappedTrie &, const allocator_type &);
 
-  HashArrayMappedTrie(HashArrayMappedTrie&& other);
+  HashArrayMappedTrie(HashArrayMappedTrie &&other);
 
-  HashArrayMappedTrie(HashArrayMappedTrie&&, const allocator_type&);
+  HashArrayMappedTrie(HashArrayMappedTrie &&, const allocator_type &);
   /*HashArrayMappedTrie(
       initializer_list<value_type>,
       size_t n = 0,
@@ -320,20 +323,20 @@ class HashArrayMappedTrie {
   HashArrayMappedTrie(InputIterator f, InputIterator l, size_t n, const allocator_type& a)
     : HashArrayMappedTrie(f, l, n, hasher(), key_equal(), a) {}
   template <class InputIterator>
-  HashArrayMappedTrie(InputIterator f, InputIterator l, size_t n, const hasher& hf, const allocator_type& a)
-    : HashArrayMappedTrie(f, l, n, hf, key_equal(), a) {}
+  HashArrayMappedTrie(InputIterator f, InputIterator l, size_t n, const hasher& hf, const
+  allocator_type& a) : HashArrayMappedTrie(f, l, n, hf, key_equal(), a) {}
   */
   /*
   HashArrayMappedTrie(initializer_list<value_type> il, size_t n, const allocator_type& a)
     : HashArrayMappedTrie(il, n, hasher(), key_equal(), a) {}
-  HashArrayMappedTrie(initializer_list<value_type> il, size_t n, const hasher& hf, const allocator_type& a)
-    : HashArrayMappedTrie(il, n, hf, key_equal(), a) {}
+  HashArrayMappedTrie(initializer_list<value_type> il, size_t n, const hasher& hf, const
+  allocator_type& a) : HashArrayMappedTrie(il, n, hf, key_equal(), a) {}
   */
 
   ~HashArrayMappedTrie() { _root.asTrie().deallocateRecursively(_allocator); }
 
   // TODO: define out-of-line
-  HashArrayMappedTrie& operator=(const HashArrayMappedTrie& other) {
+  HashArrayMappedTrie &operator=(const HashArrayMappedTrie &other) {
     if (this != &other) {
       _root.asTrie().deallocateRecursively(_allocator);
       _count = other._count;
@@ -341,14 +344,14 @@ class HashArrayMappedTrie {
       _root = other._root;
       _hasher = other._hasher;
       _key_equal = other._key_equal;
-      _allocator = other._allocator; // TODO: can copy allocator?
+      _allocator = other._allocator;  // TODO: can copy allocator?
       _root.cloneRecursively(_allocator, other._root);
     }
     return *this;
   }
 
   // TODO: define out-of-line
-  HashArrayMappedTrie& operator=(HashArrayMappedTrie&& other) {
+  HashArrayMappedTrie &operator=(HashArrayMappedTrie &&other) {
     if (this != &other) {
       _root.asTrie().deallocateRecursively(_allocator);
       _count = other._count;
@@ -356,7 +359,7 @@ class HashArrayMappedTrie {
       _root = std::move(other._root);
       _hasher = std::move(other._hasher);
       _key_equal = std::move(other._key_equal);
-      _allocator = std::move(other._allocator); // TODO: can copy allocator?
+      _allocator = std::move(other._allocator);  // TODO: can copy allocator?
     }
     return *this;
   }
@@ -372,7 +375,7 @@ class HashArrayMappedTrie {
   // template <class... Args> pair<iterator, bool> emplace(Args&&... args);
   // template <class... Args> iterator emplace_hint(const_iterator position, Args&&... args);
 
-  iterator insert(const value_type& entry) {
+  iterator insert(const value_type &entry) {
     uint32_t hash = hash32(entry.first, _seed);
     Node *node = insertEntry(&_root, entry, _seed, hash, 0, 0);
     if (node == nullptr) {
@@ -396,7 +399,7 @@ class HashArrayMappedTrie {
   }
 
   // TODO: define out-of-line
-  void swap(HashArrayMappedTrie& other) {
+  void swap(HashArrayMappedTrie &other) {
     std::swap(_count, other._count);
     std::swap(_seed, other._seed);
     std::swap(_hasher, other._hasher);
@@ -405,7 +408,7 @@ class HashArrayMappedTrie {
     _root.swap(other._root);
   }
 
-  const Node *findNode(const Key& key) {
+  const Node *findNode(const Key &key) {
     const BitmapTrie *trie = &_root.asTrie();
     uint32_t seed = _seed;
     uint32_t hash = hash32(key, _seed);
@@ -415,7 +418,7 @@ class HashArrayMappedTrie {
     while (trie->logicalPositionTaken(t)) {
       const Node *node = &trie->logicalGet(t);
       if (node->isEntry()) {
-        const auto& entry = node->asEntry();
+        const auto &entry = node->asEntry();
         // Keys match!
         if (_key_equal(entry.first, key)) {
           return node;
@@ -442,7 +445,7 @@ class HashArrayMappedTrie {
     return nullptr;
   }
 
-  const T *find(const Key& key) {
+  const T *find(const Key &key) {
     const Node *node = findNode(key);
     if (node) {
       return &node->asEntry().second;
@@ -450,13 +453,12 @@ class HashArrayMappedTrie {
     return nullptr;
   }
 
-  Node *insertEntry(
-      Node *trie_node,
-      const Entry &new_entry,
-      uint32_t seed,
-      uint32_t hash,
-      uint32_t hash_offset,
-      uint32_t level) {
+  Node *insertEntry(Node *trie_node,
+                    const Entry &new_entry,
+                    uint32_t seed,
+                    uint32_t hash,
+                    uint32_t hash_offset,
+                    uint32_t level) {
     // Insert the entry directly in the trie if the hash_slice slot is empty.
     uint32_t hash_slice = (hash >> hash_offset) & 0x1f;
     BitmapTrie *trie = &trie_node->asTrie();
@@ -505,7 +507,8 @@ class HashArrayMappedTrie {
     Entry replaced_entry(std::move(*old_entry));
     trie_node = node->BitmapTrie(_allocator, node->parent(), 2);
 
-    auto replaced_node = insertEntry(trie_node, replaced_entry, seed, old_entry_hash, hash_offset, level + 1);
+    auto replaced_node =
+        insertEntry(trie_node, replaced_entry, seed, old_entry_hash, hash_offset, level + 1);
     if (replaced_node == nullptr) {
       // If re-inserting the old entry fail for some reason, we give uo
       // on inserting the new entry and restore the old entry.
@@ -533,8 +536,10 @@ class HashArrayMappedTrie {
   }
 
 #ifdef GTEST
+  // clang-format off
  PUBLIC_IN_GTEST:
-  Node &root() { return _root; }
+  Node & root() { return _root; }
+  // clang-format on
 
   size_t countInnerNodes(BitmapTrie &trie) {
     size_t inner_nodes_count = 0;
@@ -552,7 +557,8 @@ class HashArrayMappedTrie {
   void print() {
     /* size_t inner_nodes_count = countInnerNodes(_root); */
     /* _allocator.dump(_count, inner_nodes_count); */
-    /* printf("%zu, %zu, %zu\n", _count, _allocator._total_allocated, _allocator._total_in_free_lists); */
+    /* printf("%zu, %zu, %zu\n", _count, _allocator._total_allocated,
+     * _allocator._total_in_free_lists); */
   }
 #endif  // GTEST
 };
@@ -562,6 +568,7 @@ namespace detail {
 #ifdef HAMT_IMPLEMENTATION
 
 uint32_t hamt_trie_allocation_size(uint32_t required, size_t expected_hamt_size, uint32_t level) {
+  // clang-format off
   // [level][generation]
   const static uint32_t alloc_sizes_by_level[][23] = {
     // 1  2  4  8  16  32  64  128 256  512 1024 2048 4096 8192 16384 32768 65536 2^17 2^18 2^19 2^20 2^21 2^22
@@ -575,6 +582,7 @@ uint32_t hamt_trie_allocation_size(uint32_t required, size_t expected_hamt_size,
     // 0  1  2  3  4  5  6  7  8   9  10  11  12  13  14  15  16  17  18  19  20  21  22  23  24  25  26  27  28  29  30  31  32
        1, 1, 2, 3, 5, 5, 8, 8, 8, 13, 13, 13, 13, 13, 21, 21, 21, 21, 21, 21, 21, 21, 29, 29, 29, 29, 29, 29, 29, 29, 32, 32, 32
   };
+  // clang-format on
 
   assert(required > 0 && required <= 32);
   assert(expected_hamt_size > 0);
@@ -605,7 +613,7 @@ uint32_t hamt_trie_allocation_size(uint32_t required, size_t expected_hamt_size,
 
 // BitmapTrieTemplate {{{
 
-template<class Entry, class Allocator>
+template <class Entry, class Allocator>
 NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertEntry(
     Allocator &allocator,
     int logical_index,
@@ -622,7 +630,7 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertEntr
     size_t alloc_size = hamt_trie_allocation_size(required, expected_hamt_size, level);
 
     Node *new_base =
-      static_cast<Node *>(allocator.allocate(alloc_size * sizeof(Node), alignof(Node)));
+        static_cast<Node *>(allocator.allocate(alloc_size * sizeof(Node), alignof(Node)));
     if (new_base == nullptr) {
       return nullptr;
     }
@@ -659,7 +667,7 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertEntr
 
 #ifdef GTEST
 
-template<class Entry, class Allocator>
+template <class Entry, class Allocator>
 NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertTrie(
     Allocator &allocator, Node *parent, int logical_index, uint32_t capacity) {
   assert(_capacity > size());
@@ -678,8 +686,9 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertTrie
 
 #endif  // GTEST
 
-template<class Entry, class Allocator>
-const NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::firstEntryNodeRecursively() const noexcept {
+template <class Entry, class Allocator>
+const NodeTemplate<Entry, Allocator>
+    *BitmapTrieTemplate<Entry, Allocator>::firstEntryNodeRecursively() const noexcept {
   const BitmapTrieTemplate *trie = this;
   assert(trie->size() > 0);
   for (;;) {
@@ -691,9 +700,9 @@ const NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::firs
   }
 }
 
-template<class Entry, class Allocator>
-NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::allocate(
-    Allocator &allocator, uint32_t capacity) {
+template <class Entry, class Allocator>
+NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::allocate(Allocator &allocator,
+                                                                               uint32_t capacity) {
   _capacity = capacity;
   _bitmap = 0;
   if (capacity == 0) {
@@ -704,14 +713,14 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::allocate(
   return _base;
 }
 
-template<class Entry, class Allocator>
+template <class Entry, class Allocator>
 void BitmapTrieTemplate<Entry, Allocator>::deallocate(Allocator &allocator) {
   if (_base) {
     allocator.deallocate(_base, _capacity);
   }
 }
 
-template<class Entry, class Allocator>
+template <class Entry, class Allocator>
 void BitmapTrieTemplate<Entry, Allocator>::deallocateRecursively(Allocator &allocator) noexcept {
   // Maximum stack size: 1/5 * log2(hamt.size()) * O(32)
   std::stack<BitmapTrieTemplate> stack;
@@ -736,11 +745,11 @@ void BitmapTrieTemplate<Entry, Allocator>::deallocateRecursively(Allocator &allo
   }
 }
 
-template<class Entry, class Allocator>
-void BitmapTrieTemplate<Entry, Allocator>::cloneRecursively(
-    Allocator &allocator, BitmapTrieTemplate &root) {
+template <class Entry, class Allocator>
+void BitmapTrieTemplate<Entry, Allocator>::cloneRecursively(Allocator &allocator,
+                                                            BitmapTrieTemplate &root) {
   // Stack of pair<destination, source>
-  std::stack<std::pair<BitmapTrieTemplate*, BitmapTrieTemplate*>> stack;
+  std::stack<std::pair<BitmapTrieTemplate *, BitmapTrieTemplate *>> stack;
   stack.push(this, &root);
 
   while (!stack.empty()) {
@@ -770,7 +779,7 @@ void BitmapTrieTemplate<Entry, Allocator>::cloneRecursively(
 
 // NodeTemplate {{{
 
-template<class Entry, class Allocator>
+template <class Entry, class Allocator>
 NodeTemplate<Entry, Allocator> *NodeTemplate<Entry, Allocator>::BitmapTrie(NodeTemplate *parent) {
   // Make sure an even pointer was passed and this node is a trie -- !isEntry().
   // The LSB is used to indicate if the node is an entry.
@@ -779,17 +788,18 @@ NodeTemplate<Entry, Allocator> *NodeTemplate<Entry, Allocator>::BitmapTrie(NodeT
   return this;
 }
 
-template<class Entry, class Allocator>
-NodeTemplate<Entry, Allocator> *NodeTemplate<Entry, Allocator>::BitmapTrie(
-    Allocator &allocator, NodeTemplate* parent, uint32_t capacity) {
+template <class Entry, class Allocator>
+NodeTemplate<Entry, Allocator> *NodeTemplate<Entry, Allocator>::BitmapTrie(Allocator &allocator,
+                                                                           NodeTemplate *parent,
+                                                                           uint32_t capacity) {
   auto node = this->BitmapTrie(parent);
   node->asTrie().allocate(allocator, capacity);
   return this;
 }
 
-template<class Entry, class Allocator>
-NodeTemplate<Entry, Allocator>& NodeTemplate<Entry, Allocator>::operator=(
-      NodeTemplate<Entry, Allocator>&& other) {
+template <class Entry, class Allocator>
+NodeTemplate<Entry, Allocator> &NodeTemplate<Entry, Allocator>::operator=(
+    NodeTemplate<Entry, Allocator> &&other) {
   // The LSB of parent defines if this node will be an entry
   _parent = other._parent;
   if (isEntry()) {
@@ -801,21 +811,21 @@ NodeTemplate<Entry, Allocator>& NodeTemplate<Entry, Allocator>::operator=(
   return *this;
 }
 
-template<class Entry, class Allocator>
+template <class Entry, class Allocator>
 NodeTemplate<Entry, Allocator>::NodeTemplate(const Entry &entry, NodeTemplate *parent)
-  : _parent((NodeTemplate *)((uintptr_t)parent | (uintptr_t)0x1)) {
-    new (&_either.entry) Entry(entry);
+    : _parent((NodeTemplate *)((uintptr_t)parent | (uintptr_t)0x1)) {
+  new (&_either.entry) Entry(entry);
 }
 
-template<class Entry, class Allocator>
+template <class Entry, class Allocator>
 NodeTemplate<Entry, Allocator>::NodeTemplate(Entry &&entry, NodeTemplate *parent)
-  : _parent((NodeTemplate *)((uintptr_t)parent | (uintptr_t)0x1)) {
-    new (&_either.entry) Entry(entry);
+    : _parent((NodeTemplate *)((uintptr_t)parent | (uintptr_t)0x1)) {
+  new (&_either.entry) Entry(entry);
 }
 
-template<class Entry, class Allocator>
-NodeTemplate<Entry, Allocator>& NodeTemplate<Entry, Allocator>::operator=(Entry&& other) {
-  _parent = (NodeTemplate *)((uintptr_t)_parent | (uintptr_t)0x1); // is an entry
+template <class Entry, class Allocator>
+NodeTemplate<Entry, Allocator> &NodeTemplate<Entry, Allocator>::operator=(Entry &&other) {
+  _parent = (NodeTemplate *)((uintptr_t)_parent | (uintptr_t)0x1);  // is an entry
   new (&_either.entry) Entry(other);
   return *this;
 }
@@ -827,45 +837,48 @@ NodeTemplate<Entry, Allocator>& NodeTemplate<Entry, Allocator>::operator=(Entry&
 // HashArrayMappedTrie {{{
 
 // HashArrayMappedTrie
-template<class Key, class T, class Hash, class KeyEqual, class Allocator>
-HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
-    size_t n, const hasher& hf, const key_equal& eql, const allocator_type &a)
-  : _count(0), _root(nullptr), _hasher(hf), _key_equal(eql), _allocator(a) {
-
+template <class Key, class T, class Hash, class KeyEqual, class Allocator>
+HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(size_t n,
+                                                                            const hasher &hf,
+                                                                            const key_equal &eql,
+                                                                            const allocator_type &a)
+    : _count(0), _root(nullptr), _hasher(hf), _key_equal(eql), _allocator(a) {
   _seed = static_cast<uint32_t>(FOC_GET_HASH_SEED);
   uint32_t alloc_size = detail::hamt_trie_allocation_size(1, (n > 0) ? n : 1, 0);
   assert(alloc_size >= 1);
   _root.asTrie().allocate(_allocator, alloc_size);
 }
 
-template<class Key, class T, class Hash, class KeyEqual, class Allocator>
-HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
-    const allocator_type& a)
-  : HashArrayMappedTrie(0, hasher(), key_equal(), a) {}
+template <class Key, class T, class Hash, class KeyEqual, class Allocator>
+HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(const allocator_type &a)
+    : HashArrayMappedTrie(0, hasher(), key_equal(), a) {}
 
-template<class Key, class T, class Hash, class KeyEqual, class Allocator>
+template <class Key, class T, class Hash, class KeyEqual, class Allocator>
 HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
-    const HashArrayMappedTrie& hamt) : HashArrayMappedTrie(hamt, allocator_type()) {}
+    const HashArrayMappedTrie &hamt)
+    : HashArrayMappedTrie(hamt, allocator_type()) {}
 
-template<class Key, class T, class Hash, class KeyEqual, class Allocator>
+template <class Key, class T, class Hash, class KeyEqual, class Allocator>
 HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
-    const HashArrayMappedTrie&, const allocator_type& a) : _allocator(a) {
+    const HashArrayMappedTrie &, const allocator_type &a)
+    : _allocator(a) {
   assert(false);
 }
 
-template<class Key, class T, class Hash, class KeyEqual, class Allocator>
+template <class Key, class T, class Hash, class KeyEqual, class Allocator>
 HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
-    HashArrayMappedTrie&& other)
-  : _count(other._count),
-  _seed(other._seed),
-  _root(std::move(other._root)),
-  _hasher(std::move(other._hasher)),
-  _key_equal(std::move(other._key_equal)),
-  _allocator(std::move(other._allocator)) {}
+    HashArrayMappedTrie &&other)
+    : _count(other._count),
+      _seed(other._seed),
+      _root(std::move(other._root)),
+      _hasher(std::move(other._hasher)),
+      _key_equal(std::move(other._key_equal)),
+      _allocator(std::move(other._allocator)) {}
 
-template<class Key, class T, class Hash, class KeyEqual, class Allocator>
-HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(
-    HashArrayMappedTrie&&, const allocator_type& a) : _allocator(a) {
+template <class Key, class T, class Hash, class KeyEqual, class Allocator>
+HashArrayMappedTrie<Key, T, Hash, KeyEqual, Allocator>::HashArrayMappedTrie(HashArrayMappedTrie &&,
+                                                                            const allocator_type &a)
+    : _allocator(a) {
   assert(false);
 }
 

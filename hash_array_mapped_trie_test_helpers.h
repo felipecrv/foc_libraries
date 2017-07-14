@@ -5,14 +5,14 @@ using foc::HashArrayMappedTrie;
 
 using HAMT = HashArrayMappedTrie<int64_t, int64_t>;
 
-template<class HAMT>
+template <class HAMT>
 static void print_bitmap_indexed_node(typename HAMT::BitmapTrie &trie, std::string indent) {
   std::vector<typename HAMT::BitmapTrie *> tries;
 
   printf("%3d/%-3d: %s", trie.size(), trie.capacity(), indent.c_str());
   for (int i = 0; i < 32; i++) {
     if (trie.logicalPositionTaken(i)) {
-      auto& node = trie.logicalGet(i);
+      auto &node = trie.logicalGet(i);
       if (node.isEntry()) {
         printf("%3lld ", node.asEntry().second);
       } else {
@@ -30,13 +30,13 @@ static void print_bitmap_indexed_node(typename HAMT::BitmapTrie &trie, std::stri
   }
 }
 
-template<class HAMT>
+template <class HAMT>
 static void print_hamt(HAMT &hamt) {
   print_bitmap_indexed_node<HAMT>(hamt.root().asTrie(), "");
   putchar('\n');
 }
 
-template<typename HAMT>
+template <typename HAMT>
 static void print_stats(HAMT &hamt) {
   std::queue<typename HAMT::BitmapTrie *> q;
 
@@ -52,7 +52,7 @@ static void print_stats(HAMT &hamt) {
 
     for (int i = 0; i < 32; i++) {
       if (trie->logicalPositionTaken(i)) {
-        auto& node = trie->logicalGet(i);
+        auto &node = trie->logicalGet(i);
         if (node.isTrie()) {
           q.push(&node.asTrie());
         }
@@ -77,18 +77,17 @@ static void print_stats(HAMT &hamt) {
   putchar('\n');
 }
 
-template<typename HAMT>
-typename HAMT::iterator insertKeyAndValue(
-    HAMT& hamt,
-    const typename HAMT::value_type::first_type &key,
-    const typename HAMT::value_type::second_type &value) {
+template <typename HAMT>
+typename HAMT::iterator insertKeyAndValue(HAMT &hamt,
+                                          const typename HAMT::value_type::first_type &key,
+                                          const typename HAMT::value_type::second_type &value) {
   typename HAMT::value_type entry(key, value);
   return hamt.insert(entry);
 }
 
 // Property checking helpers
 
-template<class HAMT>
+template <class HAMT>
 static void check_parent_pointers(HAMT &hamt) {
   // From each trie node, check if its children point to the trie node.
   EXPECT_EQ(hamt._root.parent(), nullptr);
@@ -128,7 +127,7 @@ static void check_parent_pointers(HAMT &hamt) {
   }
 }
 
-template<class HAMT>
+template <class HAMT>
 static void check_lookups(HAMT &hamt, int64_t n) {
   for (int64_t i = 0; i < n; i++) {
     auto found = hamt.find(i);
@@ -140,9 +139,7 @@ static void check_lookups(HAMT &hamt, int64_t n) {
 // Custom hash functions used in tests
 
 struct BadHashFunction {
-  size_t operator()(int64_t key) const {
-    return ((size_t)key % 1024) * 0x3f3f3f3f;
-  }
+  size_t operator()(int64_t key) const { return ((size_t)key % 1024) * 0x3f3f3f3f; }
 };
 
 struct IdentityFunction {
@@ -155,7 +152,7 @@ struct ConstantFunction {
 
 // Parameterized test functions
 
-template<class HAMT>
+template <class HAMT>
 static void parent_test(int64_t n) {
   HAMT hamt;
 
