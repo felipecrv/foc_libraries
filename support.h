@@ -165,6 +165,31 @@ struct isPodLike<std::pair<T, U> > {
   static const bool value = isPodLike<T>::value && isPodLike<U>::value;
 };
 
+// Return true if the argument is a power of two > 0.
+// Ex. isPowerOf2_32(0x00100000U) == true (32 bit edition.)
+constexpr inline bool is_power_of2_32(uint32_t value) { return value && !(value & (value - 1)); }
+
+// Return true if the argument is a power of two > 0 (64 bit edition.)
+constexpr inline bool is_power_of2_64(uint64_t value) { return value && !(value & (value - 1)); }
+
+// Aligns `addr` to `alignment` bytes, rounding up.
+//
+// alignment should be a power of two.  This method rounds up, so
+// alignAddr(7, 4) == 8 and alignAddr(8, 4) == 8.
+inline uintptr_t align_addr(const void *addr, size_t alignment) {
+  assert(alignment && is_power_of2_64((uint64_t)alignment) && "alignment is not a power of two!");
+
+  assert((uintptr_t)addr + alignment - 1 >= (uintptr_t)addr);
+
+  return (((uintptr_t)addr + alignment - 1) & ~(uintptr_t)(alignment - 1));
+}
+
+/// \brief Returns the necessary adjustment for aligning ptr to alignment
+/// bytes, rounding up.
+inline size_t alignment_adjustment(const void *ptr, size_t alignment) {
+  return align_addr(ptr, alignment) - (uintptr_t)ptr;
+}
+
 // next_power_of_2 - Returns the next power of two (in 64-bits)
 // that is strictly greater than x.  Returns zero on overflow.
 inline uint64_t next_power_of_2(uint64_t x) {
