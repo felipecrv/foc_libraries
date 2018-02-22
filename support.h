@@ -59,6 +59,24 @@
 # define ATTRIBUTE_ALWAYS_INLINE
 #endif
 
+#if __has_attribute(returns_nonnull) || GNUC_PREREQ(4, 9, 0)
+# define ATTRIBUTE_RETURNS_NONNULL __attribute__((returns_nonnull))
+#elif defined(_MSC_VER)
+# define ATTRIBUTE_RETURNS_NONNULL _Ret_notnull_
+#else
+# define ATTRIBUTE_RETURNS_NONNULL
+#endif
+
+// \macro ATTRIBUTE_RETURNS_NOALIAS Used to mark a function as returning a
+// pointer that does not alias any other valid pointer.
+#ifdef __GNUC__
+# define ATTRIBUTE_RETURNS_NOALIAS __attribute__((__malloc__))
+#elif defined(_MSC_VER)
+# define ATTRIBUTE_RETURNS_NOALIAS __declspec(restrict)
+#else
+# define ATTRIBUTE_RETURNS_NOALIAS
+#endif
+
 #if __has_attribute(used) || GNUC_PREREQ(3, 1, 0)
 # define ATTRIBUTE_USED __attribute__((__used__))
 #else
