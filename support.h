@@ -112,6 +112,28 @@
 # define LIKELY(EXPR) (EXPR)
 # define UNLIKELY(EXPR) (EXPR)
 #endif
+
+// MEMORY_SANITIZER_BUILD
+// If built with MemorySanitizer instrumentation.
+#if __has_feature(memory_sanitizer)
+# define MEMORY_SANITIZER_BUILD 1
+# include <sanitizer/msan_interface.h>
+#else
+# define MEMORY_SANITIZER_BUILD 0
+# define __msan_allocated_memory(p, size)
+# define __msan_unpoison(p, size)
+#endif
+
+// ADDRESS_SANITIZER_BUILD
+// If built with AddressSanitizer instrumentation.
+#if __has_feature(address_sanitizer) || defined(__SANITIZE_ADDRESS__)
+# define ADDRESS_SANITIZER_BUILD 1
+# include <sanitizer/asan_interface.h>
+#else
+# define ADDRESS_SANITIZER_BUILD 0
+# define __asan_poison_memory_region(p, size)
+# define __asan_unpoison_memory_region(p, size)
+#endif
 // clang-format on
 
 // isPodLike - This is a type trait that is used to determine whether a given
