@@ -114,7 +114,7 @@ static void check_parent_pointers(HAMT &hamt) {
 
   // For each entry node (leave), make sure the root is reachable through the _parent
   // pointers.
-  for (int64_t i = 0; i < hamt.size(); i++) {
+  for (int64_t i = 0; i < (int64_t)hamt.size(); i++) {
     const typename HAMT::Node *node = hamt.findNode(i);
     EXPECT_TRUE(node != nullptr);
     EXPECT_TRUE(node->asEntry().first == i);
@@ -154,6 +154,19 @@ struct ConstantFunction {
 
 template <class HAMT>
 static void parent_test(int64_t n) {
+  HAMT hamt;
+
+  // Insert many items into the HAMT and check
+  // the parent pointers after every insertion.
+  for (int64_t i = 0; i < n; i++) {
+    /*auto it = */ insertKeyAndValue(hamt, i, i);
+    check_lookups(hamt, i);
+    check_parent_pointers(hamt);
+  }
+}
+
+template <class HAMT>
+static void loose_parent_test(int64_t n) {
   HAMT hamt;
 
   // Insert many items into the HAMT and check

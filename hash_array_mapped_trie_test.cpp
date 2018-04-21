@@ -337,7 +337,7 @@ TEST(HashArrayMappedTrieTest, ParentTestWithIdentityFunction) {
 
 TEST(HashArrayMappedTrieTest, ParentTestConstantFunction) {
   using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t, ConstantFunction>;
-  parent_test<HAMT>(64);
+  loose_parent_test<HAMT>(64);
 }
 
 TEST(HashArrayMappedTrieTest, TopLevelInsertTest) {
@@ -398,4 +398,53 @@ TEST(HashArrayMappedTrieTest, PhysicalIndexOfNodeInTrie) {
     EXPECT_EQ(logical_node->parent(), root);
     EXPECT_EQ(root->asTrie().physicalIndexOf(logical_node), i);
   }
+}
+
+TEST(HashArrayMappedTrieTest, IteratorTest) {
+  HAMT empty_hamt;
+  const auto &const_empty_hamt = empty_hamt;
+  EXPECT_EQ(empty_hamt.size(), 0);
+
+  HAMT non_empty_hamt;
+  const auto &const_non_empty_hamt = non_empty_hamt;
+  for (int64_t i = 0; i < 128; i++) {
+    insertKeyAndValue(non_empty_hamt, i, i);
+  }
+  print_hamt(non_empty_hamt);
+  check_parent_pointers(empty_hamt);
+  check_parent_pointers(non_empty_hamt);
+
+  // Check begin == end on empty HAMTs
+  EXPECT_EQ(empty_hamt.begin(), empty_hamt.end());
+  EXPECT_EQ(const_empty_hamt.begin(), const_empty_hamt.end());
+  EXPECT_EQ(const_empty_hamt.cbegin(), const_empty_hamt.cend());
+
+  // Check begin != end on non-empty HAMTs
+  EXPECT_NE(non_empty_hamt.begin(), non_empty_hamt.end());
+  EXPECT_NE(const_non_empty_hamt.begin(), const_non_empty_hamt.end());
+  EXPECT_NE(const_non_empty_hamt.cbegin(), const_non_empty_hamt.cend());
+
+  // Check the value of begin()
+  {
+    HAMT::const_iterator it = const_non_empty_hamt.begin();
+    EXPECT_EQ(it->first, 77);
+    EXPECT_EQ(it->second, 77);
+  }
+  {
+    HAMT::const_iterator it = const_non_empty_hamt.begin();
+    EXPECT_EQ(it->first, 77);
+    EXPECT_EQ(it->second, 77);
+  }
+  {
+    HAMT::const_iterator it = const_non_empty_hamt.cbegin();
+    EXPECT_EQ(it->first, 77);
+    EXPECT_EQ(it->second, 77);
+  }
+
+  size_t count_items = 0;
+  for (auto it = non_empty_hamt.begin(); it != non_empty_hamt.end(); it++) {
+    count_items++;
+    printf("%lld %lld\n", it->first, it->second);
+  }
+  EXPECT_EQ(count_items, 128);
 }

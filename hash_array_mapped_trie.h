@@ -188,9 +188,31 @@ class NodeTemplate {
     return _either.trie;
   }
 
-  NodeTemplate *nextEntryNode() {
-    // TODO: fix
-    return this;
+  const NodeTemplate *nextEntryNode() const {
+    assert(isEntry());
+    const NodeTemplate *node = this;
+    const NodeTemplate *parent_node = node->parent();
+    do {
+      assert(parent_node != nullptr);
+      assert(parent_node->isTrie());
+
+      const BitmapTrieT *parent_trie = &parent_node->asTrie();
+      uint32_t index_of_next_node = parent_trie->physicalIndexOf(node) + 1;
+      if (index_of_next_node < parent_trie->size()) {
+        const NodeTemplate *next_node = &parent_trie->physicalGet(index_of_next_node);
+        if (next_node->isEntry()) {
+          return next_node;
+        }
+        const BitmapTrieT &trie = next_node->asTrie();
+        return trie.firstEntryNodeRecursively();
+      }
+
+      // Go up
+      node = parent_node;
+      parent_node = node->parent();
+    } while (parent_node);
+
+    return nullptr;
   }
 };
 
@@ -371,6 +393,21 @@ class HashArrayMappedTrie {
   bool empty() const { return _count == 0; }
   size_type size() const { return _count; }
   // We don't implement max_size()
+
+  iterator begin() noexcept {
+    return iterator(_count ? _root.asTrie().firstEntryNodeRecursively() : nullptr);
+  }
+
+  iterator end() noexcept { return iterator(nullptr); }
+
+  const_iterator begin() const noexcept {
+    return const_iterator(_count ? _root.asTrie().firstEntryNodeRecursively() : nullptr);
+  }
+
+  const_iterator end() const noexcept { return const_iterator(nullptr); }
+
+  const_iterator cbegin() const noexcept { return begin(); }
+  const_iterator cend() const noexcept { return end(); }
 
   // template <class... Args> pair<iterator, bool> emplace(Args&&... args);
   // template <class... Args> iterator emplace_hint(const_iterator position, Args&&... args);
