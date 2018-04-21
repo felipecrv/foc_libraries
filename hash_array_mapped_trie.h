@@ -531,9 +531,7 @@ class HashArrayMappedTrie {
     return seed;
   }
 
-  uint32_t hash32(const Key &key, uint32_t seed) const {
-    return seed ^ _hasher(key);
-  }
+  uint32_t hash32(const Key &key, uint32_t seed) const { return seed ^ _hasher(key); }
 
 #ifdef GTEST
   // clang-format off
