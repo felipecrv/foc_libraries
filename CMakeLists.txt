@@ -21,7 +21,6 @@ enable_testing()
 
 # small_vector_test
 add_executable(small_vector_test small_vector_test.cpp)
-target_link_libraries(small_vector_test ${googletest_LIBRARIES})
 add_test(SmallVectorTest small_vector_test)
 
 # hash_array_mapped_trie_test
