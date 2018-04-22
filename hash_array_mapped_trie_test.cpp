@@ -60,44 +60,6 @@ TEST_CASE("LogicalZeroToPhysicalZeroIndexTranslationTest", "[HAMT]") {
   }
 }
 
-TEST_CASE("FirstEntryTest", "[HAMT]") {
-  HAMT::BitmapTrie trie;
-  MallocAllocator allocator;
-
-  std::pair<int64_t, int64_t> two(2, 2);
-  std::pair<int64_t, int64_t> three(3, 3);
-
-  // Insert two entrie into a trie and check the first
-  trie.allocate(allocator, 4);
-  trie.insertEntry(allocator, 2, two, nullptr, 4, 0);
-  REQUIRE(trie.logicalPositionTaken(2));
-  trie.insertEntry(allocator, 3, three, nullptr, 4, 0);
-  REQUIRE(trie.logicalPositionTaken(3));
-
-  const HAMT::Node *node = trie.firstEntryNodeRecursively();
-  REQUIRE(node->asEntry().second == 2);
-}
-
-TEST_CASE("FirstEntryRecursivelyTest", "[HAMT]") {
-  HAMT::BitmapTrie trie;
-  MallocAllocator allocator;
-
-  std::pair<int64_t, int64_t> two(2, 2);
-  std::pair<int64_t, int64_t> three(3, 3);
-
-  // Isert an entry and a trie with an entry to cause recursion
-  trie.allocate(allocator, 4);
-  trie.insertEntry(allocator, 3, three, nullptr, 4, 0);
-  REQUIRE(trie.logicalPositionTaken(3));
-  HAMT::Node *child = trie.insertTrie(allocator, nullptr, 0, 1);
-  REQUIRE(trie.logicalPositionTaken(0));
-  child->asTrie().insertEntry(allocator, 0, two, nullptr, 1, 1);
-  REQUIRE(child->asTrie().logicalPositionTaken(0));
-
-  const HAMT::Node *node = trie.firstEntryNodeRecursively();
-  REQUIRE(node->asEntry().second == 2);
-}
-
 TEST_CASE("LogicalToPhysicalIndexTranslationTest", "[HAMT]") {
   HAMT::BitmapTrie trie;
 
@@ -152,7 +114,7 @@ TEST_CASE("LogicalToPhysicalIndexTranslationTest", "[HAMT]") {
   REQUIRE(trie.physicalIndex(31) == 3);
 }
 
-TEST_CASE("BitmapTrieInsertTest", "[HAMT]") {
+TEST_CASE("BitmapTrieInsertEntryTest", "[HAMT]") {
   HAMT::BitmapTrie trie;
   MallocAllocator allocator;
   trie.allocate(allocator, 1);
@@ -237,6 +199,32 @@ TEST_CASE("BitmapTrieInsertTest", "[HAMT]") {
   REQUIRE(trie.physicalGet(6).asEntry().second == 31);
 }
 
+TEST_CASE("BitmapTrieInsertEntryTilFullTest", "[HAMT]") {
+  HAMT::BitmapTrie trie;
+  MallocAllocator allocator;
+
+  int64_t numbers[] = {
+      24, 26, 23, 18, 7, 28, 12, 0,  5, 2,  22, 15, 30, 8, 31, 20,
+      1,  13, 17, 21, 4, 14, 25, 19, 6, 27, 16, 10, 29, 3, 11, 9,
+  };
+  std::vector<std::pair<int64_t, int64_t>> entries;
+  for (const auto num : numbers) {
+    entries.push_back(std::make_pair(num, num));
+  }
+
+  trie.allocate(allocator, 0);
+  int64_t inserted_sum = 0;
+  for (size_t i = 0; i < entries.size(); i++) {
+    trie.insertEntry(allocator, entries[i].first, entries[i], nullptr, 100, 0);
+    inserted_sum += entries[i].second;
+    int64_t sum = 0;
+    for (uint32_t j = 0; j <= i; j++) {
+      sum += trie.logicalGet(entries[j].first).asEntry().second;
+    }
+    REQUIRE(sum == inserted_sum);
+  }
+}
+
 TEST_CASE("BitmapTrieInsertTrieTest", "[HAMT]") {
   HAMT::BitmapTrie trie;
   HAMT::Node parent(nullptr);
@@ -275,6 +263,44 @@ TEST_CASE("BitmapTrieInsertTrieTest", "[HAMT]") {
   REQUIRE(grand_child_trie_node.isTrie());
   REQUIRE(grand_child_trie_node.parent() == &child_trie_node);
   REQUIRE(child_trie_node.parent() == &parent);
+}
+
+TEST_CASE("FirstEntryInNodeTest", "[HAMT]") {
+  HAMT::BitmapTrie trie;
+  MallocAllocator allocator;
+
+  std::pair<int64_t, int64_t> two(2, 2);
+  std::pair<int64_t, int64_t> three(3, 3);
+
+  // Insert two entries into a trie and check the first
+  trie.allocate(allocator, 4);
+  trie.insertEntry(allocator, 3, three, nullptr, 4, 0);
+  REQUIRE(trie.logicalPositionTaken(3));
+  trie.insertEntry(allocator, 2, two, nullptr, 4, 0);
+  REQUIRE(trie.logicalPositionTaken(2));
+
+  const HAMT::Node *node = trie.firstEntryNodeRecursively();
+  REQUIRE(node->asEntry().second == 2);
+}
+
+TEST_CASE("FirstEntryRecursivelyTest", "[HAMT]") {
+  HAMT::BitmapTrie trie;
+  MallocAllocator allocator;
+
+  std::pair<int64_t, int64_t> two(2, 2);
+  std::pair<int64_t, int64_t> three(3, 3);
+
+  // Isert an entry and a trie with an entry to cause recursion
+  trie.allocate(allocator, 4);
+  trie.insertEntry(allocator, 3, three, nullptr, 4, 0);
+  REQUIRE(trie.logicalPositionTaken(3));
+  HAMT::Node *child = trie.insertTrie(allocator, nullptr, 0, 1);
+  REQUIRE(trie.logicalPositionTaken(0));
+  child->asTrie().insertEntry(allocator, 0, two, nullptr, 1, 1);
+  REQUIRE(child->asTrie().logicalPositionTaken(0));
+
+  const HAMT::Node *node = trie.firstEntryNodeRecursively();
+  REQUIRE(node->asEntry().second == 2);
 }
 
 TEST_CASE("NodeInitializationAsBitmapTrieTest", "[HAMT]") {

@@ -661,7 +661,11 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertEntr
 
   uint32_t required = sz + 1;
   assert(required <= 32);
-  if (required > _capacity) {
+  if (LIKELY(required <= _capacity)) {
+    for (int32_t j = (int32_t)sz; j > (int32_t)i; j--) {
+      _base[j] = std::move(_base[j - 1]);
+    }
+  } else {
     size_t alloc_size = hamt_trie_allocation_size(required, expected_hamt_size, level);
 
     Node *new_base =
@@ -685,10 +689,6 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertEntr
       allocator.deallocate(_base, _capacity);
       _base = new_base;
       _capacity = alloc_size;
-    }
-  } else {
-    for (int32_t j = (int32_t)sz; j > (int32_t)i; j--) {
-      _base[j] = std::move(_base[j - 1]);
     }
   }
 
