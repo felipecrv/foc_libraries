@@ -19,11 +19,11 @@
 #include "allocator.h"
 #include "support.h"
 
-#ifndef PUBLIC_IN_GTEST
-#ifdef GTEST
-#define PUBLIC_IN_GTEST public
+#ifndef VISIBLE_IN_TESTS
+#ifdef TESTS
+#define VISIBLE_IN_TESTS public
 #else
-#define PUBLIC_IN_GTEST private
+#define VISIBLE_IN_TESTS private
 #endif
 #endif
 
@@ -116,13 +116,13 @@ class BitmapTrieTemplate {
                     size_t expected_hamt_size,
                     uint32_t level);
 
-#ifdef GTEST
+#ifdef TESTS
   Node *insertTrie(Allocator &, Node *parent, int logical_index, uint32_t capacity);
-#endif  // GTEST
+#endif  // TESTS
 
   const Node *firstEntryNodeRecursively() const noexcept;
 
-#ifdef GTEST
+#ifdef TESTS
   uint32_t &bitmap() { return _bitmap; }
 #endif
 };
@@ -274,7 +274,7 @@ template <class Key,
           class Allocator = MallocAllocator>
 class HashArrayMappedTrie {
   // clang-format off
- PUBLIC_IN_GTEST:
+ VISIBLE_IN_TESTS:
   using Entry = std::pair<Key, T>;
   // clang-format on
   using BitmapTrie = detail::BitmapTrieTemplate<Entry, Allocator>;
@@ -570,9 +570,9 @@ class HashArrayMappedTrie {
 
   uint32_t hash32(const Key &key, uint32_t seed) const { return seed ^ _hasher(key); }
 
-#ifdef GTEST
+#ifdef TESTS
   // clang-format off
- PUBLIC_IN_GTEST:
+ VISIBLE_IN_TESTS:
   Node & root() { return _root; }
   // clang-format on
 
@@ -595,7 +595,7 @@ class HashArrayMappedTrie {
     /* printf("%zu, %zu, %zu\n", _count, _allocator._total_allocated,
      * _allocator._total_in_free_lists); */
   }
-#endif  // GTEST
+#endif  // TESTS
 };
 
 namespace detail {
@@ -700,7 +700,7 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertEntr
   return new (&_base[i]) Node(new_entry, parent);
 }
 
-#ifdef GTEST
+#ifdef TESTS
 
 template <class Entry, class Allocator>
 NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertTrie(
@@ -719,7 +719,7 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertTrie
   return _base[i].BitmapTrie(allocator, parent, capacity);
 }
 
-#endif  // GTEST
+#endif  // TESTS
 
 template <class Entry, class Allocator>
 const NodeTemplate<Entry, Allocator>

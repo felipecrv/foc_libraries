@@ -4,7 +4,7 @@
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 
-#define GTEST
+#define TESTS
 #define HAMT_IMPLEMENTATION
 #include "hash_array_mapped_trie.h"
 #include "hash_array_mapped_trie_test_helpers.h"
