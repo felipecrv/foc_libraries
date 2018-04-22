@@ -25,7 +25,6 @@ add_test(SmallVectorTest small_vector_test)
 
 # hash_array_mapped_trie_test
 add_executable(hash_array_mapped_trie_test hash_array_mapped_trie_test.cpp)
-target_link_libraries(hash_array_mapped_trie_test ${googletest_LIBRARIES})
 add_test(HashArrayMappedTrieTest hash_array_mapped_trie_test)
 
 # sqlkit_test

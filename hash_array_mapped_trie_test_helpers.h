@@ -90,7 +90,7 @@ typename HAMT::iterator insertKeyAndValue(HAMT &hamt,
 template <class HAMT>
 static void check_parent_pointers(HAMT &hamt) {
   // From each trie node, check if its children point to the trie node.
-  EXPECT_EQ(hamt._root.parent(), nullptr);
+  REQUIRE(hamt._root.parent() == nullptr);
   std::queue<typename HAMT::Node *> q;
   q.push(&hamt._root);
   size_t bfs_count = 0;
@@ -101,7 +101,7 @@ static void check_parent_pointers(HAMT &hamt) {
       auto *trie = &node->asTrie();
       for (uint32_t i = 0; i < trie->size(); i++) {
         auto *child_node = &trie->physicalGet(i);
-        EXPECT_EQ(child_node->parent(), node);
+        REQUIRE(child_node->parent() == node);
         if (child_node->isTrie()) {
           q.push(child_node);
         } else {
@@ -110,15 +110,15 @@ static void check_parent_pointers(HAMT &hamt) {
       }
     }
   }
-  EXPECT_EQ(bfs_count, hamt.size());
+  REQUIRE(bfs_count == hamt.size());
 
   // For each entry node (leave), make sure the root is reachable through the _parent
   // pointers.
   for (int64_t i = 0; i < (int64_t)hamt.size(); i++) {
     const typename HAMT::Node *node = hamt.findNode(i);
-    EXPECT_TRUE(node != nullptr);
-    EXPECT_TRUE(node->asEntry().first == i);
-    EXPECT_TRUE(node->asEntry().second == i);
+    REQUIRE(node != nullptr);
+    REQUIRE(node->asEntry().first == i);
+    REQUIRE(node->asEntry().second == i);
 
     do {
       // Make sure you can find the root from the node
@@ -131,8 +131,8 @@ template <class HAMT>
 static void check_lookups(HAMT &hamt, int64_t n) {
   for (int64_t i = 0; i < n; i++) {
     auto found = hamt.find(i);
-    EXPECT_TRUE(found != nullptr);
-    EXPECT_EQ(*found, i);
+    REQUIRE(found != nullptr);
+    REQUIRE(*found == i);
   }
 }
 
@@ -175,12 +175,12 @@ static void loose_parent_test(int64_t n) {
     auto it = insertKeyAndValue(hamt, i, i);
     if (it == nullptr) {
       auto not_found = hamt.find(i);
-      EXPECT_EQ(not_found, nullptr);
+      REQUIRE(not_found == nullptr);
     } else {
-      EXPECT_EQ(it->second, i);
+      REQUIRE(it->second == i);
       auto found = hamt.find(i);
-      EXPECT_TRUE(found != nullptr);
-      EXPECT_EQ(*found, i);
+      REQUIRE(found != nullptr);
+      REQUIRE(*found == i);
     }
     check_parent_pointers(hamt);
   }
