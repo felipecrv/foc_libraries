@@ -765,15 +765,13 @@ void BitmapTrieTemplate<Entry, Allocator>::deallocateRecursively(Allocator &allo
     BitmapTrieTemplate trie(std::move(stack.top()));
     stack.pop();
 
-    uint32_t trie_size = trie.size();
-    if (trie_size) {
-      for (int i = trie_size - 1; i >= 0; i--) {
-        Node *node = &trie.physicalGet(i);
-        if (node->isEntry()) {
-          node->asEntry().~Entry();
-        } else {
-          stack.push(std::move(node->asTrie()));
-        }
+    int trie_size = (int)trie.size();
+    for (int i = trie_size - 1; i >= 0; i--) {
+      Node *node = &trie.physicalGet(i);
+      if (node->isEntry()) {
+        node->asEntry().~Entry();
+      } else {
+        stack.push(std::move(node->asTrie()));
       }
     }
     trie.deallocate(allocator);
@@ -796,15 +794,13 @@ void BitmapTrieTemplate<Entry, Allocator>::cloneRecursively(Allocator &allocator
     dest->allocate(allocator, source->capacity());
 
     int source_size = source->size();
-    if (source_size) {
-      for (int i = source_size - 1; i >= 0; i--) {
-        Node *source_node = &source->physicalGet(i);
-        Node *dest_node = &dest->physicalGet(i);
-        if (source_node->isEntry()) {
-          new (dest_node) Node(*source_node);
-        } else {
-          stack.push(dest_node->BitmapTrie(), &source_node->asTrie());
-        }
+    for (int i = source_size - 1; i >= 0; i--) {
+      Node *source_node = &source->physicalGet(i);
+      Node *dest_node = &dest->physicalGet(i);
+      if (source_node->isEntry()) {
+        new (dest_node) Node(*source_node);
+      } else {
+        stack.push(dest_node->BitmapTrie(), &source_node->asTrie());
       }
     }
   }
