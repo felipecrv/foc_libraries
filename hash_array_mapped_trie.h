@@ -124,10 +124,11 @@ class BitmapTrieTemplate {
 
 #ifdef TESTS
   uint32_t &bitmap() { return _bitmap; }
-#endif
+#endif  // TESTS
 };
 
 // A Node in the HAMT is a sum type of Entry and BitmapTrie (i.e. can be one or the other).
+// The lower bit in the _parent pointer is used to identify the case.
 template <class Entry, class Allocator>
 class NodeTemplate {
  private:
@@ -812,7 +813,7 @@ void BitmapTrieTemplate<Entry, Allocator>::cloneRecursively(Allocator &allocator
 
 template <class Entry, class Allocator>
 NodeTemplate<Entry, Allocator> *NodeTemplate<Entry, Allocator>::BitmapTrie(NodeTemplate *parent) {
-  // Make sure an even pointer was passed and this node is a trie -- !isEntry().
+  // Make sure an even pointer was passed and let this node be a trie.
   // The LSB is used to indicate if the node is an entry.
   assert(((uintptr_t)parent & (uintptr_t)0x1) == 0);
   _parent = parent;

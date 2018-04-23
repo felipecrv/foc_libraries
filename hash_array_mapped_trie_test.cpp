@@ -28,7 +28,7 @@ TEST_CASE("AllocationSizeCalculationTest", "[HAMT]") {
   }
 }
 
-TEST_CASE("BitmatpTrieInitialization", "[HAMT]") {
+TEST_CASE("BitmatpTrieInitialization", "[BitmapTrie]") {
   HAMT::BitmapTrie trie;
   MallocAllocator allocator;
 
@@ -49,7 +49,10 @@ TEST_CASE("BitmatpTrieInitialization", "[HAMT]") {
   }
 }
 
-TEST_CASE("LogicalZeroToPhysicalZeroIndexTranslationTest", "[HAMT]") {
+// BitmapTrie::cloneRecursively() and BitmapTrie::deallocateRecursively()
+// aren't tested directly.
+
+TEST_CASE("LogicalZeroToPhysicalZeroIndexTranslationTest", "[BitmapTrie]") {
   HAMT::BitmapTrie trie;
 
   // For any bitmap, the logical index 0 will map to physical index 0.
@@ -60,7 +63,7 @@ TEST_CASE("LogicalZeroToPhysicalZeroIndexTranslationTest", "[HAMT]") {
   }
 }
 
-TEST_CASE("LogicalToPhysicalIndexTranslationTest", "[HAMT]") {
+TEST_CASE("LogicalToPhysicalIndexTranslationTest", "[BitmapTrie]") {
   HAMT::BitmapTrie trie;
 
   trie.bitmap() = 1;  // 0001
@@ -114,7 +117,7 @@ TEST_CASE("LogicalToPhysicalIndexTranslationTest", "[HAMT]") {
   REQUIRE(trie.physicalIndex(31) == 3);
 }
 
-TEST_CASE("BitmapTrieInsertEntryTest", "[HAMT]") {
+TEST_CASE("BitmapTrieInsertEntryTest", "[BitmapTrie]") {
   HAMT::BitmapTrie trie;
   MallocAllocator allocator;
   trie.allocate(allocator, 1);
@@ -199,7 +202,7 @@ TEST_CASE("BitmapTrieInsertEntryTest", "[HAMT]") {
   REQUIRE(trie.physicalGet(6).asEntry().second == 31);
 }
 
-TEST_CASE("BitmapTrieInsertEntryTilFullTest", "[HAMT]") {
+TEST_CASE("BitmapTrieInsertEntryTilFullTest", "[BitmapTrie]") {
   HAMT::BitmapTrie trie;
   MallocAllocator allocator;
 
@@ -225,7 +228,7 @@ TEST_CASE("BitmapTrieInsertEntryTilFullTest", "[HAMT]") {
   }
 }
 
-TEST_CASE("BitmapTrieInsertTrieTest", "[HAMT]") {
+TEST_CASE("BitmapTrieInsertTrieTest", "[BitmapTrie]") {
   HAMT::BitmapTrie trie;
   HAMT::Node parent(nullptr);
   MallocAllocator allocator;
@@ -265,7 +268,7 @@ TEST_CASE("BitmapTrieInsertTrieTest", "[HAMT]") {
   REQUIRE(child_trie_node.parent() == &parent);
 }
 
-TEST_CASE("FirstEntryInNodeTest", "[HAMT]") {
+TEST_CASE("FirstEntryInNodeTest", "[BitmapTrie]") {
   HAMT::BitmapTrie trie;
   MallocAllocator allocator;
 
@@ -283,7 +286,7 @@ TEST_CASE("FirstEntryInNodeTest", "[HAMT]") {
   REQUIRE(node->asEntry().second == 2);
 }
 
-TEST_CASE("FirstEntryRecursivelyTest", "[HAMT]") {
+TEST_CASE("FirstEntryRecursivelyTest", "[BitmapTrie]") {
   HAMT::BitmapTrie trie;
   MallocAllocator allocator;
 
@@ -303,7 +306,7 @@ TEST_CASE("FirstEntryRecursivelyTest", "[HAMT]") {
   REQUIRE(node->asEntry().second == 2);
 }
 
-TEST_CASE("NodeInitializationAsBitmapTrieTest", "[HAMT]") {
+TEST_CASE("NodeInitializationAsBitmapTrieTest", "[Node]") {
   HAMT::Node parent(nullptr);
   REQUIRE(parent.parent() == nullptr);
 
@@ -332,7 +335,7 @@ TEST_CASE("NodeInitializationAsBitmapTrieTest", "[HAMT]") {
   a_trie.deallocate(allocator);
 }
 
-TEST_CASE("NodeInitializationAsEntryTest", "[HAMT]") {
+TEST_CASE("NodeInitializationAsEntryTest", "[Node]") {
   HAMT::Node parent(nullptr);
 
   std::pair<int64_t, int64_t> entry = std::make_pair(2, 4);
