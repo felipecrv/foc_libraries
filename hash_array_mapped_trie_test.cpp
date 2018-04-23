@@ -295,7 +295,7 @@ TEST_CASE("FirstEntryRecursivelyTest", "[BitmapTrie]") {
   std::pair<int64_t, int64_t> two(2, 2);
   std::pair<int64_t, int64_t> three(3, 3);
 
-  // Isert an entry and a trie with an entry to cause recursion
+  // Insert an entry and a trie with an entry to cause recursion
   trie.allocate(allocator, 4);
   trie.insertEntry(allocator, 3, std::move(three), nullptr, 4, 0);
   REQUIRE(trie.logicalPositionTaken(3));

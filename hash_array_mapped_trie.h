@@ -392,7 +392,13 @@ class HashArrayMappedTrie {
     uint32_t hash = hash32(entry.first, _seed);
     value_type new_entry = entry;
     Node *node = insertEntry(
-        /*trie_node=*/&_root, std::move(new_entry), _seed, hash, /*hash_offset=*/0, /*level=*/0);
+        /*trie_node=*/&_root,
+        std::move(new_entry),
+        _seed,
+        hash,
+        /*hash_offset=*/0,
+        /*level=*/0,
+        /*updated=*/nullptr);  // Do not allow update
     if (node == nullptr) {
       return iterator(nullptr);
     }
@@ -472,7 +478,8 @@ class HashArrayMappedTrie {
                     uint32_t seed,
                     uint32_t hash,
                     uint32_t hash_offset,
-                    uint32_t level) {
+                    uint32_t level,
+                    bool *updated) {
     // Insert the entry directly in the trie if the hash_slice slot is empty.
     uint32_t hash_slice = (hash >> hash_offset) & 0x1f;
     BitmapTrie *trie = &trie_node->asTrie();
@@ -496,14 +503,17 @@ class HashArrayMappedTrie {
         hash = hash32(new_entry.first, seed);
       }
       return insertEntry(
-          /*trie_node=*/node, std::move(new_entry), seed, hash, hash_offset, level + 1);
+          /*trie_node=*/node, std::move(new_entry), seed, hash, hash_offset, level + 1, updated);
     }
 
     // If the Node is an entry and the key matches, override the value.
     Entry *old_entry = &node->asEntry();
     if (_key_equal(old_entry->first, new_entry.first)) {
-      // Keys match! Override the value.
-      old_entry->second = std::move(new_entry.second);
+      // Keys match! Override the value if allowed.
+      if (updated) {
+        *updated = true;
+        old_entry->second = std::move(new_entry.second);
+      }
       return node;
     }
 
@@ -518,6 +528,8 @@ class HashArrayMappedTrie {
       seed = next_seed(seed);
       hash = hash32(new_entry.first, seed);
       old_entry_hash = hash32(old_entry->first, seed);
+      // If a really terrible hash function is used, we fail insertion here to
+      // prevent an infinite loop.
       if (UNLIKELY(hash == old_entry_hash)) {
         return nullptr;
       }
@@ -532,14 +544,16 @@ class HashArrayMappedTrie {
                                      seed,
                                      /*hash=*/old_entry_hash,
                                      hash_offset,
-                                     level + 1);
+                                     level + 1,
+                                     updated);
     if (replaced_node == nullptr) {
       // If re-inserting the old entry fail for some reason, we give up
       // on inserting the new entry and restore the old entry.
       *node = std::move(replaced_entry);
       return nullptr;
     }
-    return insertEntry(trie_node, std::move(new_entry), seed, hash, hash_offset, level + 1);
+    return insertEntry(
+        trie_node, std::move(new_entry), seed, hash, hash_offset, level + 1, updated);
   }
 
  private:

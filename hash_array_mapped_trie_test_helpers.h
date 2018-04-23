@@ -176,7 +176,7 @@ static void loose_parent_test(int64_t n) {
   // Insert many items into the HAMT and check
   // the parent pointers after every insertion.
   for (int64_t i = 0; i < n; i++) {
-    auto it = insertKeyAndValue(hamt, i, i);
+    auto it = hamt.insert(std::make_pair(i, i));
     if (it == nullptr) {
       auto not_found = hamt.findValue(i);
       REQUIRE(not_found == nullptr);
