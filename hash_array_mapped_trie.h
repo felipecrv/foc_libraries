@@ -189,32 +189,7 @@ class NodeTemplate {
     return _either.trie;
   }
 
-  const NodeTemplate *nextEntryNode() const {
-    assert(isEntry());
-    const NodeTemplate *node = this;
-    const NodeTemplate *parent_node = node->parent();
-    do {
-      assert(parent_node != nullptr);
-      assert(parent_node->isTrie());
-
-      const BitmapTrieT *parent_trie = &parent_node->asTrie();
-      uint32_t index_of_next_node = parent_trie->physicalIndexOf(node) + 1;
-      if (index_of_next_node < parent_trie->size()) {
-        const NodeTemplate *next_node = &parent_trie->physicalGet(index_of_next_node);
-        if (next_node->isEntry()) {
-          return next_node;
-        }
-        const BitmapTrieT &trie = next_node->asTrie();
-        return trie.firstEntryNodeRecursively();
-      }
-
-      // Go up
-      node = parent_node;
-      parent_node = node->parent();
-    } while (parent_node);
-
-    return nullptr;
-  }
+  const NodeTemplate *nextEntryNode() const;
 };
 
 }  // namespace detail
@@ -860,6 +835,34 @@ NodeTemplate<Entry, Allocator> &NodeTemplate<Entry, Allocator>::operator=(Entry 
   _parent = (NodeTemplate *)((uintptr_t)_parent | (uintptr_t)0x1);  // is an entry
   new (&_either.entry) Entry(other);
   return *this;
+}
+
+template <class Entry, class Allocator>
+const NodeTemplate<Entry, Allocator> *NodeTemplate<Entry, Allocator>::nextEntryNode() const {
+  assert(isEntry());
+  const NodeTemplate *node = this;
+  const NodeTemplate *parent_node = node->parent();
+  do {
+    assert(parent_node != nullptr);
+    assert(parent_node->isTrie());
+
+    const BitmapTrieT *parent_trie = &parent_node->asTrie();
+    uint32_t index_of_next_node = parent_trie->physicalIndexOf(node) + 1;
+    if (index_of_next_node < parent_trie->size()) {
+      const NodeTemplate *next_node = &parent_trie->physicalGet(index_of_next_node);
+      if (next_node->isEntry()) {
+        return next_node;
+      }
+      const BitmapTrieT &trie = next_node->asTrie();
+      return trie.firstEntryNodeRecursively();
+    }
+
+    // Go up
+    node = parent_node;
+    parent_node = node->parent();
+  } while (parent_node);
+
+  return nullptr;
 }
 
 // }}} END of NodeTemplate
