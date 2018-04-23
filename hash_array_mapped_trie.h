@@ -111,7 +111,7 @@ class BitmapTrieTemplate {
 
   Node *insertEntry(Allocator &,
                     int logical_index,
-                    const Entry &,
+                    Entry &&,
                     Node *parent,
                     size_t expected_hamt_size,
                     uint32_t level);
@@ -390,7 +390,9 @@ class HashArrayMappedTrie {
 
   iterator insert(const value_type &entry) {
     uint32_t hash = hash32(entry.first, _seed);
-    Node *node = insertEntry(&_root, entry, _seed, hash, 0, 0);
+    value_type new_entry = entry;
+    Node *node = insertEntry(
+        /*trie_node=*/&_root, std::move(new_entry), _seed, hash, /*hash_offset=*/0, /*level=*/0);
     if (node == nullptr) {
       return iterator(nullptr);
     }
@@ -466,7 +468,7 @@ class HashArrayMappedTrie {
   }
 
   Node *insertEntry(Node *trie_node,
-                    const Entry &new_entry,
+                    Entry &&new_entry,
                     uint32_t seed,
                     uint32_t hash,
                     uint32_t hash_offset,
@@ -475,7 +477,12 @@ class HashArrayMappedTrie {
     uint32_t hash_slice = (hash >> hash_offset) & 0x1f;
     BitmapTrie *trie = &trie_node->asTrie();
     if (UNLIKELY(!trie->logicalPositionTaken(hash_slice))) {
-      return trie->insertEntry(_allocator, hash_slice, new_entry, trie_node, _count + 1, level);
+      return trie->insertEntry(_allocator,
+                               /*logical_index=*/hash_slice,
+                               std::move(new_entry),
+                               /*parent=*/trie_node,
+                               /*expected_hamt_size=*/_count + 1,
+                               level);
     }
 
     // If the Node in hash_slice is a trie, insert recursively.
@@ -488,7 +495,8 @@ class HashArrayMappedTrie {
         seed = next_seed(seed);
         hash = hash32(new_entry.first, seed);
       }
-      return insertEntry(node, new_entry, seed, hash, hash_offset, level + 1);
+      return insertEntry(
+          /*trie_node=*/node, std::move(new_entry), seed, hash, hash_offset, level + 1);
     }
 
     // If the Node is an entry and the key matches, override the value.
@@ -519,15 +527,19 @@ class HashArrayMappedTrie {
     Entry replaced_entry(std::move(*old_entry));
     trie_node = node->BitmapTrie(_allocator, node->parent(), 2);
 
-    auto replaced_node =
-        insertEntry(trie_node, replaced_entry, seed, old_entry_hash, hash_offset, level + 1);
+    auto replaced_node = insertEntry(trie_node,
+                                     /*new_entry=*/std::move(replaced_entry),
+                                     seed,
+                                     /*hash=*/old_entry_hash,
+                                     hash_offset,
+                                     level + 1);
     if (replaced_node == nullptr) {
-      // If re-inserting the old entry fail for some reason, we give uo
+      // If re-inserting the old entry fail for some reason, we give up
       // on inserting the new entry and restore the old entry.
       *node = std::move(replaced_entry);
       return nullptr;
     }
-    return insertEntry(trie_node, new_entry, seed, hash, hash_offset, level + 1);
+    return insertEntry(trie_node, std::move(new_entry), seed, hash, hash_offset, level + 1);
   }
 
  private:
@@ -627,7 +639,7 @@ template <class Entry, class Allocator>
 NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertEntry(
     Allocator &allocator,
     int logical_index,
-    const Entry &new_entry,
+    Entry &&new_entry,
     Node *parent,
     size_t expected_hamt_size,
     uint32_t level) {
