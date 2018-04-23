@@ -458,7 +458,7 @@ class HashArrayMappedTrie {
     return nullptr;
   }
 
-  const T *find(const Key &key) {
+  const T *findValue(const Key &key) {
     const Node *node = findNode(key);
     if (node) {
       return &node->asEntry().second;

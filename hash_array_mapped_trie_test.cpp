@@ -359,7 +359,7 @@ TEST_CASE("InsertionTest", "[HAMT]") {
 
     int64_t last_not_found = -1;
     for (int64_t i = 1; i <= max; i++) {
-      auto found = hamt.find(i * 10);
+      auto found = hamt.findValue(i * 10);
       REQUIRE(found != nullptr);
       if (found == nullptr) {
         last_not_found = i * 10;

@@ -131,7 +131,7 @@ static void check_parent_pointers(HAMT &hamt) {
 template <class HAMT>
 static void check_lookups(HAMT &hamt, int64_t n) {
   for (int64_t i = 0; i < n; i++) {
-    auto found = hamt.find(i);
+    auto found = hamt.findValue(i);
     REQUIRE(found != nullptr);
     REQUIRE(*found == i);
   }
@@ -178,11 +178,11 @@ static void loose_parent_test(int64_t n) {
   for (int64_t i = 0; i < n; i++) {
     auto it = insertKeyAndValue(hamt, i, i);
     if (it == nullptr) {
-      auto not_found = hamt.find(i);
+      auto not_found = hamt.findValue(i);
       REQUIRE(not_found == nullptr);
     } else {
       REQUIRE(it->second == i);
-      auto found = hamt.find(i);
+      auto found = hamt.findValue(i);
       REQUIRE(found != nullptr);
       REQUIRE(*found == i);
     }
