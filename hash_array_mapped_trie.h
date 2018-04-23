@@ -409,6 +409,7 @@ class HashArrayMappedTrie {
   void clear() {
     _count = 0;
     _root.asTrie().clear(_allocator);
+    _seed = static_cast<uint32_t>(FOC_GET_HASH_SEED);
   }
 
   // TODO: define out-of-line
@@ -436,8 +437,6 @@ class HashArrayMappedTrie {
         if (_key_equal(entry.first, key)) {
           return node;
         }
-        /* printf("%d -> %d\n", key, hash); */
-        /* printf("%d -> %d\n", entry.first, hash32(entry.second, seed)); */
         return nullptr;
       }
 
