@@ -89,7 +89,8 @@ typename HAMT::iterator insertKeyAndValue(HAMT &hamt,
 
 template <class HAMT>
 static void check_parent_pointers(HAMT &hamt) {
-  // From each trie node, check if its children point to the trie node.
+  // Perform a Breadth First Search and from each trie node, check if its
+  // children point to the parent trie node.
   REQUIRE(hamt._root.parent() == nullptr);
   std::queue<typename HAMT::Node *> q;
   q.push(&hamt._root);
@@ -155,11 +156,14 @@ struct ConstantFunction {
 template <class HAMT>
 static void parent_test(int64_t n) {
   HAMT hamt;
+  size_t size = 0;
 
   // Insert many items into the HAMT and check
   // the parent pointers after every insertion.
   for (int64_t i = 0; i < n; i++) {
     /*auto it = */ insertKeyAndValue(hamt, i, i);
+    size++;
+    REQUIRE(hamt.size() == size);
     check_lookups(hamt, i);
     check_parent_pointers(hamt);
   }

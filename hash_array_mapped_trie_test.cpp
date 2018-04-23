@@ -350,6 +350,27 @@ TEST_CASE("NodeInitializationAsEntryTest", "[Node]") {
   REQUIRE(!node.isTrie());
 }
 
+TEST_CASE("InsertionTest", "[HAMT]") {
+  for (int max = 1; max <= 1048576; max *= 2) {
+    HAMT hamt;
+    for (int64_t i = 1; i <= max; i++) {
+      insertKeyAndValue(hamt, i * 10, i);
+    }
+
+    int64_t last_not_found = -1;
+    for (int64_t i = 1; i <= max; i++) {
+      auto found = hamt.find(i * 10);
+      REQUIRE(found != nullptr);
+      if (found == nullptr) {
+        last_not_found = i * 10;
+        continue;
+      }
+      REQUIRE(*found == i);
+    }
+    REQUIRE(last_not_found == -1);
+  }
+}
+
 TEST_CASE("ParentTest", "[HAMT]") {
   using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t>;
   parent_test<HAMT>(2048);
@@ -367,51 +388,11 @@ TEST_CASE("ParentTestWithIdentityFunction", "[HAMT]") {
 
 TEST_CASE("ParentTestConstantFunction", "[HAMT]") {
   using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t, ConstantFunction>;
+  // Lookups fail when a constant hash function is used
   loose_parent_test<HAMT>(64);
 }
 
-TEST_CASE("TopLevelInsertTest", "[HAMT]") {
-  /* for (int max = 1; max <= 1048576; max *= 2) { */
-  for (int64_t max = 65536; max <= 65536; max *= 2) {
-    HAMT hamt;
-    for (int64_t i = 1; i <= max; i++) {
-      /* printf("%d:\n", i * 10); */
-      insertKeyAndValue(hamt, i * 10, i);
-      if (__builtin_popcount(i) == 1) {
-        hamt.print();
-      }
-    }
-    /* print_hamt(hamt); */
-    /* print_stats(hamt); */
-
-    /* int64_t count_not_found = 0; */
-    int64_t last_not_found = -1;
-    for (int64_t i = 1; i <= max; i++) {
-      auto found = hamt.find(i * 10);
-      REQUIRE(found != nullptr);
-      /*
-      if (found == nullptr) {
-        count_not_found++;
-        last_not_found = i * 10;
-        continue;
-      }
-      */
-      REQUIRE(*found == i);
-    }
-    /* printf("count_not_found %d\n", count_not_found); */
-    REQUIRE(last_not_found == -1);
-  }
-}
-
-TEST_CASE("ConstantHashFunctionTest", "[HAMT]") {
-  using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t, ConstantFunction>;
-  HAMT hamt;
-  for (int64_t i = 0; i < 32; i++) {
-    insertKeyAndValue(hamt, i, i);
-  }
-}
-
-TEST_CASE("PhysicalIndexOfNodeInTrie", "[HAMT]") {
+TEST_CASE("PhysicalIndexOfNodeInTrieWithAParent", "[HAMT]") {
   using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t, IdentityFunction>;
   HAMT hamt;
   hamt._seed = 0;
@@ -430,19 +411,18 @@ TEST_CASE("PhysicalIndexOfNodeInTrie", "[HAMT]") {
   }
 }
 
-TEST_CASE("IteratorTest", "[HAMT]") {
+TEST_CASE("ConstIteratorTest", "[HAMT]") {
   HAMT empty_hamt;
   const auto &const_empty_hamt = empty_hamt;
   REQUIRE(empty_hamt.size() == 0);
 
+  int64_t checksum = 0;
   HAMT non_empty_hamt;
-  const auto &const_non_empty_hamt = non_empty_hamt;
-  for (int64_t i = 0; i < 128; i++) {
+  for (int64_t i = 0; i < 10000; i++) {
     insertKeyAndValue(non_empty_hamt, i, i);
+    checksum += i;
   }
-  print_hamt(non_empty_hamt);
-  check_parent_pointers(empty_hamt);
-  check_parent_pointers(non_empty_hamt);
+  const auto &const_non_empty_hamt = non_empty_hamt;
 
   // Check begin == end on empty HAMTs
   REQUIRE(empty_hamt.begin() == empty_hamt.end());
@@ -457,24 +437,29 @@ TEST_CASE("IteratorTest", "[HAMT]") {
   // Check the value of begin()
   {
     HAMT::const_iterator it = const_non_empty_hamt.begin();
-    REQUIRE(it->first == 77);
-    REQUIRE(it->second == 77);
+    REQUIRE(it->first == 3277);
+    REQUIRE(it->second == 3277);
   }
   {
     HAMT::const_iterator it = const_non_empty_hamt.begin();
-    REQUIRE(it->first == 77);
-    REQUIRE(it->second == 77);
+    REQUIRE(it->first == 3277);
+    REQUIRE(it->second == 3277);
   }
   {
     HAMT::const_iterator it = const_non_empty_hamt.cbegin();
-    REQUIRE(it->first == 77);
-    REQUIRE(it->second == 77);
+    REQUIRE(it->first == 3277);
+    REQUIRE(it->second == 3277);
   }
 
+  int64_t sum_keys = 0;
+  int64_t sum_values = 0;
   size_t count_items = 0;
   for (auto it = non_empty_hamt.begin(); it != non_empty_hamt.end(); it++) {
     count_items++;
-    printf("%lld %lld\n", it->first, it->second);
+    sum_keys += it->first;
+    sum_values += it->second;
   }
-  REQUIRE(count_items == 128);
+  REQUIRE(count_items == 10000);
+  REQUIRE(sum_keys == checksum);
+  REQUIRE(sum_values == checksum);
 }
