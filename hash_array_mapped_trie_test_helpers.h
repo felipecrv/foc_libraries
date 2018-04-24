@@ -77,14 +77,6 @@ static void print_stats(HAMT &hamt) {
   putchar('\n');
 }
 
-template <typename HAMT>
-typename HAMT::iterator insertKeyAndValue(HAMT &hamt,
-                                          const typename HAMT::value_type::first_type &key,
-                                          const typename HAMT::value_type::second_type &value) {
-  typename HAMT::value_type entry(key, value);
-  return hamt.insert(entry);
-}
-
 // Property checking helpers
 
 template <class HAMT>
@@ -161,7 +153,7 @@ static void parent_test(int64_t n) {
   // Insert many items into the HAMT and check
   // the parent pointers after every insertion.
   for (int64_t i = 0; i < n; i++) {
-    /*auto it = */ insertKeyAndValue(hamt, i, i);
+    hamt.put(i, i);
     size++;
     REQUIRE(hamt.size() == size);
     check_lookups(hamt, i);

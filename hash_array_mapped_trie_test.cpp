@@ -356,7 +356,7 @@ TEST_CASE("InsertionTest", "[HAMT]") {
   for (int max = 1; max <= 1048576; max *= 2) {
     HAMT hamt;
     for (int64_t i = 1; i <= max; i++) {
-      insertKeyAndValue(hamt, i * 10, i);
+      hamt.put(i * 10, i);
     }
 
     int64_t last_not_found = -1;
@@ -371,6 +371,21 @@ TEST_CASE("InsertionTest", "[HAMT]") {
     }
     REQUIRE(last_not_found == -1);
   }
+}
+
+TEST_CASE("InsertDoesntReplace", "[HAMT]") {
+  HAMT hamt;
+  hamt.insert(std::make_pair(1, 1));
+  hamt.insert(std::make_pair(1, 10));
+  REQUIRE(hamt.find(1)->second == 1);
+  REQUIRE(!hamt.put(2, 20));  // Didn't replace. 2 doesn't exist.
+  REQUIRE(hamt.put(1, 10));   // 1 is replaced
+  REQUIRE(hamt.find(1)->second == 10);
+  REQUIRE(hamt.find(2)->second == 20);
+}
+
+TEST_CASE("NonCopyableInsertionTest", "[HAMT]") {
+  /* using HAMT = foc::HashArrayMappedTrie<int64_t, NonCopyable>; */
 }
 
 TEST_CASE("ParentTest", "[HAMT]") {
@@ -400,7 +415,7 @@ TEST_CASE("PhysicalIndexOfNodeInTrieWithAParent", "[HAMT]") {
   hamt._seed = 0;
   HAMT::Node *root = &hamt._root;
   for (int64_t i = 31; i >= 0; i--) {
-    insertKeyAndValue(hamt, i, i);
+    hamt.put(i, i);
   }
   for (uint32_t i = 0; i < 32; i++) {
     REQUIRE(root->asTrie().physicalIndex(i) == i);
@@ -421,7 +436,7 @@ TEST_CASE("ConstIteratorTest", "[HAMT]") {
   int64_t checksum = 0;
   HAMT non_empty_hamt;
   for (int64_t i = 0; i < 10000; i++) {
-    insertKeyAndValue(non_empty_hamt, i, i);
+    non_empty_hamt.put( i, i);
     checksum += i;
   }
   const auto &const_non_empty_hamt = non_empty_hamt;

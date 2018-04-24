@@ -430,6 +430,49 @@ class HashArrayMappedTrie {
     _root.swap(other._root);
   }
 
+  iterator find(const Key &key) {
+    const auto *node = findNode(key);
+    return iterator{node};
+  }
+
+  const_iterator find(const Key &key) const {
+    const auto *node = findNode(key);
+    return const_iterator{node};
+  }
+
+  // Custom container API {{{
+
+  bool put(Entry &&new_entry) {
+    uint32_t hash = hash32(new_entry.first, _seed);
+    bool updated = false;
+    Node *node = insertEntry(
+        /*trie_node=*/&_root,
+        std::move(new_entry),
+        _seed,
+        hash,
+        /*hash_offset=*/0,
+        /*level=*/0,
+        &updated);
+    if (node == nullptr) {
+      // This will be nullptr, only of a really terrible hash function is used.
+      return false;
+    }
+    if (!updated) {
+      _count++;
+    }
+    return updated;
+  }
+
+  bool put(const Key &key, const T &value) {
+    auto new_entry = std::make_pair(key, value);
+    return put(std::move(new_entry));
+  }
+
+  bool put(Key &&key, T &&value) {
+    auto new_entry = std::make_pair(std::move(key), std::move(value));
+    return put(std::move(new_entry));
+  }
+
   const Node *findNode(const Key &key) {
     const BitmapTrie *trie = &_root.asTrie();
     uint32_t seed = _seed;
@@ -555,6 +598,8 @@ class HashArrayMappedTrie {
     return insertEntry(
         trie_node, std::move(new_entry), seed, hash, hash_offset, level + 1, updated);
   }
+
+  // }}} End of Custom container API
 
  private:
   Node *allocateBaseTrieArray(size_t capacity) {
