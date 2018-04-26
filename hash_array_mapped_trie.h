@@ -439,6 +439,10 @@ class HashArrayMappedTrie {
     return const_iterator{node};
   }
 
+  hasher hash_function() const { return _hasher; }
+
+  key_equal key_eq() const { return _key_equal; }
+
   // Custom container API {{{
 
   bool put(Entry &&new_entry) {
