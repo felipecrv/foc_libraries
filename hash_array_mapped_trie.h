@@ -402,7 +402,6 @@ class HashArrayMappedTrie {
     if (node == nullptr) {
       return iterator(nullptr);
     }
-    _count++;
     return iterator(node);
   }
 
@@ -453,12 +452,10 @@ class HashArrayMappedTrie {
         /*hash_offset=*/0,
         /*level=*/0,
         &updated);
+    assert(node != nullptr);
     if (node == nullptr) {
       // This will be nullptr, only of a really terrible hash function is used.
       return false;
-    }
-    if (!updated) {
-      _count++;
     }
     return updated;
   }
@@ -527,11 +524,12 @@ class HashArrayMappedTrie {
     uint32_t hash_slice = (hash >> hash_offset) & 0x1f;
     BitmapTrie *trie = &trie_node->asTrie();
     if (UNLIKELY(!trie->logicalPositionTaken(hash_slice))) {
+      _count++;
       return trie->insertEntry(_allocator,
                                /*logical_index=*/hash_slice,
                                std::move(new_entry),
                                /*parent=*/trie_node,
-                               /*expected_hamt_size=*/_count + 1,
+                               /*expected_hamt_size=*/_count,
                                level);
     }
 
@@ -581,6 +579,7 @@ class HashArrayMappedTrie {
     // This new trie will contain the replaced_entry and the new_entry.
     Entry replaced_entry(std::move(*old_entry));
     trie_node = node->BitmapTrie(_allocator, node->parent(), 2);
+    _count--;
 
     auto replaced_node = insertEntry(trie_node,
                                      /*new_entry=*/std::move(replaced_entry),

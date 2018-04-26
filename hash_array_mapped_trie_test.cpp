@@ -375,11 +375,16 @@ TEST_CASE("InsertionTest", "[HAMT]") {
 
 TEST_CASE("InsertDoesntReplace", "[HAMT]") {
   HAMT hamt;
+  REQUIRE(hamt.size() == 0);
   hamt.insert(std::make_pair(1, 1));
+  REQUIRE(hamt.size() == 1);
   hamt.insert(std::make_pair(1, 10));
+  REQUIRE(hamt.size() == 1);
   REQUIRE(hamt.find(1)->second == 1);
   REQUIRE(!hamt.put(2, 20));  // Didn't replace. 2 doesn't exist.
+  REQUIRE(hamt.size() == 2);
   REQUIRE(hamt.put(1, 10));   // 1 is replaced
+  REQUIRE(hamt.size() == 2);
   REQUIRE(hamt.find(1)->second == 10);
   REQUIRE(hamt.find(2)->second == 20);
 }
