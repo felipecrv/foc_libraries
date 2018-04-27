@@ -467,8 +467,22 @@ class HashArrayMappedTrie {
   }
 
   const_iterator find(const Key &key) const {
-    const auto *node = findNode(key);
+    const auto *node = const_cast<HashArrayMappedTrie *>(this)->findNode(key);
     return const_iterator{node};
+  }
+
+  std::pair<iterator, iterator> equal_range(const Key &key) {
+    const auto first = find(key);
+    auto second = first;
+    second++;
+    return std::make_pair(first, second);
+  }
+
+  std::pair<const_iterator, const_iterator> equal_range(const Key &key) const {
+    const auto first = find(key);
+    auto second = first;
+    second++;
+    return std::make_pair(first, second);
   }
 
   hasher hash_function() const { return _hasher; }

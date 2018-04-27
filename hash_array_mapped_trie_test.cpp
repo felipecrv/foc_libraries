@@ -425,8 +425,26 @@ TEST_CASE("CountTest", "[HAMT]") {
   }
 }
 
-TEST_CASE("NonCopyableInsertionTest", "[HAMT]") {
-  /* using HAMT = foc::HashArrayMappedTrie<int64_t, NonCopyable>; */
+TEST_CASE("EqualRangeTest", "[HAMT]") {
+  HAMT hamt;
+  for (int64_t i = 0; i < 2048; i++) {
+    hamt[i] = i * 10;
+  }
+
+  auto range = hamt.equal_range(4);
+  int64_t sum = 0;
+  for (auto it = range.first; it != range.second; it++) {
+    sum += it->second;
+  }
+  REQUIRE(sum == 40);
+
+  const auto &h = hamt;
+  auto const_range = h.equal_range(5);
+  sum = 0;
+  for (auto it = const_range.first; it != const_range.second; it++) {
+    sum += it->second;
+  }
+  REQUIRE(sum == 50);
 }
 
 TEST_CASE("ParentTest", "[HAMT]") {
