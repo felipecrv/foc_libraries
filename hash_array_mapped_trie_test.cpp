@@ -123,14 +123,14 @@ TEST_CASE("BitmapTrieInsertEntryTest", "[BitmapTrie]") {
   trie.allocate(allocator, 1);
 
   auto e = std::make_pair(40LL, 4LL);
-  trie.insertEntry(allocator, 4, std::move(e), nullptr, 2, 0);
+  trie.insertEntry(allocator, 4, nullptr, 2, 0)->asEntry() = std::move(e);
   REQUIRE(trie.bitmap() == 16);  // 010000
   REQUIRE(trie.size() == 1);
   REQUIRE(trie.physicalGet(0).asEntry().first == 40);
   REQUIRE(trie.physicalGet(0).asEntry().second == 4);
 
   e = std::make_pair(20L, 2L);
-  trie.insertEntry(allocator, 2, std::move(e), nullptr, 2, 0);
+  trie.insertEntry(allocator, 2, nullptr, 2, 0)->asEntry() = std::move(e);
   REQUIRE(trie.bitmap() == 20);  // 010100
   REQUIRE(trie.size() == 2);
   REQUIRE(trie.physicalGet(0).asEntry().first == 20);
@@ -139,7 +139,7 @@ TEST_CASE("BitmapTrieInsertEntryTest", "[BitmapTrie]") {
   REQUIRE(trie.physicalGet(1).asEntry().second == 4);
 
   e = std::make_pair(30L, 3L);
-  trie.insertEntry(allocator, 3, std::move(e), nullptr, 2, 0);
+  trie.insertEntry(allocator, 3, nullptr, 2, 0)->asEntry() = std::move(e);
   REQUIRE(trie.bitmap() == 28);  // 011100
   REQUIRE(trie.size() == 3);
   REQUIRE(trie.physicalGet(0).asEntry().first == 20);
@@ -150,7 +150,7 @@ TEST_CASE("BitmapTrieInsertEntryTest", "[BitmapTrie]") {
   REQUIRE(trie.physicalGet(2).asEntry().second == 4);
 
   e = std::make_pair(0LL, 0LL);
-  trie.insertEntry(allocator, 0, std::move(e), nullptr, 2, 0);
+  *trie.insertEntry(allocator, 0, nullptr, 2, 0) = std::move(e);
   REQUIRE(trie.bitmap() == 29);  // 011101
   REQUIRE(trie.size() == 4);
   REQUIRE(trie.physicalGet(0).asEntry().first == 0);
@@ -163,7 +163,7 @@ TEST_CASE("BitmapTrieInsertEntryTest", "[BitmapTrie]") {
   REQUIRE(trie.physicalGet(3).asEntry().second == 4);
 
   e = std::make_pair(50LL, 5LL);
-  trie.insertEntry(allocator, 5, std::move(e), nullptr, 2, 0);
+  trie.insertEntry(allocator, 5, nullptr, 2, 0)->asEntry() = std::move(e);
   REQUIRE(trie.bitmap() == 61);  // 111101
   REQUIRE(trie.size() == 5);
   REQUIRE(trie.physicalGet(0).asEntry().first == 0);
@@ -178,7 +178,7 @@ TEST_CASE("BitmapTrieInsertEntryTest", "[BitmapTrie]") {
   REQUIRE(trie.physicalGet(4).asEntry().second == 5);
 
   e = std::make_pair(10LL, 1LL);
-  trie.insertEntry(allocator, 1, std::move(e), nullptr, 2, 0);
+  trie.insertEntry(allocator, 1, nullptr, 2, 0)->asEntry() = std::move(e);
   REQUIRE(trie.bitmap() == 63);  // 111111
   REQUIRE(trie.size() == 6);
   REQUIRE(trie.physicalGet(0).asEntry().first == 0);
@@ -195,7 +195,7 @@ TEST_CASE("BitmapTrieInsertEntryTest", "[BitmapTrie]") {
   REQUIRE(trie.physicalGet(5).asEntry().second == 5);
 
   e = std::make_pair(310LL, 31L);
-  trie.insertEntry(allocator, 31, std::move(e), nullptr, 2, 0);
+  trie.insertEntry(allocator, 31, nullptr, 2, 0)->asEntry() = std::move(e);
   REQUIRE(trie.bitmap() == (63 | (0x1 << 31)));
   REQUIRE(trie.size() == 7);
   REQUIRE(trie.physicalGet(6).asEntry().first == 310);
@@ -219,7 +219,8 @@ TEST_CASE("BitmapTrieInsertEntryTilFullTest", "[BitmapTrie]") {
   int64_t inserted_sum = 0;
   for (size_t i = 0; i < entries.size(); i++) {
     auto new_entry = entries[i];
-    trie.insertEntry(allocator, entries[i].first, std::move(new_entry), nullptr, 100, 0);
+    trie.insertEntry(allocator, entries[i].first, nullptr, 100, 0)->asEntry() =
+        std::move(new_entry);
     inserted_sum += entries[i].second;
     int64_t sum = 0;
     for (uint32_t j = 0; j <= i; j++) {
@@ -241,7 +242,7 @@ TEST_CASE("BitmapTrieInsertTrieTest", "[BitmapTrie]") {
   REQUIRE(trie.size() == 0);
 
   // Insert an entry and a trie to the trie
-  trie.insertEntry(allocator, 0, std::move(new_entry), &parent, 0, 0);
+  trie.insertEntry(allocator, 0, &parent, 0, 0)->asEntry() = std::move(new_entry);
   REQUIRE(trie.size() == 1);
   trie.insertTrie(allocator, &parent, 1, capacity);
   REQUIRE(trie.size() == 2);
@@ -279,9 +280,9 @@ TEST_CASE("FirstEntryInNodeTest", "[BitmapTrie]") {
 
   // Insert two entries into a trie and check the first
   trie.allocate(allocator, 4);
-  trie.insertEntry(allocator, 3, std::move(three), nullptr, 4, 0);
+  trie.insertEntry(allocator, 3, nullptr, 4, 0)->asEntry() = std::move(three);
   REQUIRE(trie.logicalPositionTaken(3));
-  trie.insertEntry(allocator, 2, std::move(two), nullptr, 4, 0);
+  trie.insertEntry(allocator, 2, nullptr, 4, 0)->asEntry() = std::move(two);
   REQUIRE(trie.logicalPositionTaken(2));
 
   const HAMT::Node *node = trie.firstEntryNodeRecursively();
@@ -297,11 +298,11 @@ TEST_CASE("FirstEntryRecursivelyTest", "[BitmapTrie]") {
 
   // Insert an entry and a trie with an entry to cause recursion
   trie.allocate(allocator, 4);
-  trie.insertEntry(allocator, 3, std::move(three), nullptr, 4, 0);
+  trie.insertEntry(allocator, 3, nullptr, 4, 0)->asEntry() = std::move(three);
   REQUIRE(trie.logicalPositionTaken(3));
   HAMT::Node *child = trie.insertTrie(allocator, nullptr, 0, 1);
   REQUIRE(trie.logicalPositionTaken(0));
-  child->asTrie().insertEntry(allocator, 0, std::move(two), nullptr, 1, 1);
+  child->asTrie().insertEntry(allocator, 0, nullptr, 1, 1)->asEntry() = std::move(two);
   REQUIRE(child->asTrie().logicalPositionTaken(0));
 
   const HAMT::Node *node = trie.firstEntryNodeRecursively();
@@ -390,20 +391,22 @@ TEST_CASE("InsertDoesntReplace", "[HAMT]") {
 }
 
 TEST_CASE("operator[]", "[HAMT]") {
-  HAMT hamt;
+  foc::HashArrayMappedTrie<std::string, int64_t> hamt;
   for (int64_t i = 0; i < 2048; i++) {
-    REQUIRE(hamt.count(i) == 0);
-    hamt[i] = i * 10;
-    REQUIRE(hamt.find(i)->second == i * 10);
-    REQUIRE(hamt.count(i) == 1);
+    std::string s = std::to_string(i);
+    REQUIRE(hamt.count(s) == 0);
+    hamt[s] = i * 10;
+    REQUIRE(hamt.find(s)->second == i * 10);
+    REQUIRE(hamt.count(s) == 1);
     // check size
     REQUIRE(hamt.size() == i + 1);
   }
   hamt.clear();
   for (int64_t i = 0; i < 2048; i++) {
-    REQUIRE(hamt[i] == 0);
-    hamt[i] = i * 10;
-    REQUIRE(hamt[i] == i * 10);
+    std::string s = std::to_string(i);
+    REQUIRE(hamt[s] == 0);
+    hamt[s] = i * 10;
+    REQUIRE(hamt[s] == i * 10);
     // check size
     REQUIRE(hamt.size() == i + 1);
   }

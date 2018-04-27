@@ -59,8 +59,11 @@ class BitmapTrieTemplate {
 
  public:
   // We allow the object to be uninitialized because we want to keep it inside a union.
-  // Users of this class should call allocate and deallocate correctly.
+  //
+  // WARNING: Users of this class (internal-only) should call allocate and
+  // deallocate correctly.
   BitmapTrieTemplate() = default;
+  BitmapTrieTemplate(const BitmapTrieTemplate &other) = delete;
   BitmapTrieTemplate(BitmapTrieTemplate &&other) = default;
 
   ATTRIBUTE_ALWAYS_INLINE
@@ -111,8 +114,7 @@ class BitmapTrieTemplate {
 
   Node *insertEntry(Allocator &,
                     int logical_index,
-                    Entry &&,
-                    Node *parent,
+                    const Node *parent,
                     size_t expected_hamt_size,
                     uint32_t level);
 
@@ -146,8 +148,6 @@ class NodeTemplate {
   ATTRIBUTE_ALWAYS_INLINE
   explicit NodeTemplate(NodeTemplate *parent) { BitmapTrie(parent); }
   ATTRIBUTE_ALWAYS_INLINE
-  NodeTemplate(const Entry &entry, NodeTemplate *parent);
-  ATTRIBUTE_ALWAYS_INLINE
   NodeTemplate(Entry &&entry, NodeTemplate *parent);
 
   ATTRIBUTE_ALWAYS_INLINE
@@ -159,6 +159,9 @@ class NodeTemplate {
   NodeTemplate &operator=(NodeTemplate &&other);
   ATTRIBUTE_ALWAYS_INLINE
   NodeTemplate &operator=(Entry &&other);
+
+  ATTRIBUTE_ALWAYS_INLINE
+  NodeTemplate *setEntryParent(const NodeTemplate *parent);
 
   bool isEntry() const { return (uintptr_t)_parent & (uintptr_t)0x1U; }
   bool isTrie() const { return !isEntry(); }
@@ -389,18 +392,13 @@ class HashArrayMappedTrie {
   // template <class... Args> iterator emplace_hint(const_iterator position, Args&&... args);
 
   iterator insert(const value_type &entry) {
-    uint32_t hash = hash32(entry.first, _seed);
-    value_type new_entry = entry;
-    Node *node = insertEntry(
-        /*trie_node=*/&_root,
-        std::move(new_entry),
-        _seed,
-        hash,
-        /*hash_offset=*/0,
-        /*level=*/0,
-        /*updated=*/nullptr);  // Do not allow update
+    bool exists = false;
+    Node *node = insertEntry(/*key=*/entry.first, &exists);
     if (node == nullptr) {
       return iterator(nullptr);
+    }
+    if (!exists) {
+      new (&node->asEntry()) Entry(entry);
     }
     return iterator(node);
   }
@@ -436,24 +434,25 @@ class HashArrayMappedTrie {
   // We don't implement at() to avoid the need of exceptions
 
   T &operator[](const Key &key) {
-    Key k = key;
-    return (*this)[std::move(k)];
+    bool exists = false;
+    Node *node = insertEntry(key, &exists);
+    assert(node);  // nullptr here is a bug in the hash function
+    auto &entry = node->asEntry();
+    if (!exists) {
+      new (&entry) Entry(key, T());
+    }
+    return entry.second;
   }
 
   T &operator[](Key &&key) {
-    T value{};
-    value_type new_entry = std::make_pair(std::move(key), std::move(value));
-    uint32_t hash = hash32(key, _seed);
-    Node *node = insertEntry(
-        /*trie_node=*/&_root,
-        std::move(new_entry),
-        _seed,
-        hash,
-        /*hash_offset=*/0,
-        /*level=*/0,
-        /*updated=*/nullptr);  // Update not allowed
-    assert(node);              // nullptr here is a bug in the hash function
-    return node->asEntry().second;
+    bool exists = false;
+    Node *node = insertEntry(key, &exists);
+    assert(node);  // nullptr here is a bug in the hash function
+    auto &entry = node->asEntry();
+    if (!exists) {
+      new (&entry) Entry(std::move(key), T());
+    }
+    return entry.second;
   }
 
   size_type count(const Key &key) const {
@@ -492,22 +491,20 @@ class HashArrayMappedTrie {
   // Custom container API {{{
 
   bool put(Entry &&new_entry) {
-    uint32_t hash = hash32(new_entry.first, _seed);
-    bool updated = false;
-    Node *node = insertEntry(
-        /*trie_node=*/&_root,
-        std::move(new_entry),
-        _seed,
-        hash,
-        /*hash_offset=*/0,
-        /*level=*/0,
-        &updated);
-    assert(node != nullptr);
+    bool exists = false;
+    Node *node = insertEntry(/*key=*/new_entry.first, &exists);
+    assert(node);
     if (node == nullptr) {
       // This will be nullptr, only of a really terrible hash function is used.
       return false;
     }
-    return updated;
+    auto &entry = node->asEntry();
+    if (exists) {
+      entry.second = std::move(new_entry.second);
+    } else {
+      new (&entry) Entry(std::move(new_entry));
+    }
+    return exists;
   }
 
   bool put(const Key &key, const T &value) {
@@ -564,20 +561,20 @@ class HashArrayMappedTrie {
   }
 
   Node *insertEntry(Node *trie_node,
-                    Entry &&new_entry,
+                    const Key &key,
                     uint32_t seed,
                     uint32_t hash,
                     uint32_t hash_offset,
                     uint32_t level,
-                    bool *updated) {
+                    bool *exists) {
     // Insert the entry directly in the trie if the hash_slice slot is empty.
     uint32_t hash_slice = (hash >> hash_offset) & 0x1f;
     BitmapTrie *trie = &trie_node->asTrie();
     if (UNLIKELY(!trie->logicalPositionTaken(hash_slice))) {
       _count++;
+      assert(!*exists);
       return trie->insertEntry(_allocator,
                                /*logical_index=*/hash_slice,
-                               std::move(new_entry),
                                /*parent=*/trie_node,
                                /*expected_hamt_size=*/_count,
                                level);
@@ -591,20 +588,18 @@ class HashArrayMappedTrie {
       } else {
         hash_offset = 0;
         seed = next_seed(seed);
-        hash = hash32(new_entry.first, seed);
+        hash = hash32(key, seed);
       }
       return insertEntry(
-          /*trie_node=*/node, std::move(new_entry), seed, hash, hash_offset, level + 1, updated);
+          /*trie_node=*/node, key, seed, hash, hash_offset, level + 1, exists);
     }
 
     // If the Node is an entry and the key matches, override the value.
     Entry *old_entry = &node->asEntry();
-    if (_key_equal(old_entry->first, new_entry.first)) {
-      // Keys match! Override the value if allowed.
-      if (updated) {
-        *updated = true;
-        old_entry->second = std::move(new_entry.second);
-      }
+    if (_key_equal(old_entry->first, key)) {
+      // Keys match!
+      assert(!*exists);
+      *exists = true;
       return node;
     }
 
@@ -617,7 +612,7 @@ class HashArrayMappedTrie {
     } else {
       hash_offset = 0;
       seed = next_seed(seed);
-      hash = hash32(new_entry.first, seed);
+      hash = hash32(key, seed);
       old_entry_hash = hash32(old_entry->first, seed);
       // If a really terrible hash function is used, we fail insertion here to
       // prevent an infinite loop.
@@ -626,26 +621,40 @@ class HashArrayMappedTrie {
       }
     }
 
-    // This new trie will contain the replaced_entry and the new_entry.
+    // This new trie will contain the replaced_entry and the new entry.
     Entry replaced_entry(std::move(*old_entry));
     trie_node = node->BitmapTrie(_allocator, node->parent(), 2);
     _count--;
 
     auto replaced_node = insertEntry(trie_node,
-                                     /*new_entry=*/std::move(replaced_entry),
+                                     /*key=*/replaced_entry.first,
                                      seed,
                                      /*hash=*/old_entry_hash,
                                      hash_offset,
                                      level + 1,
-                                     updated);
-    if (replaced_node == nullptr) {
+                                     exists);
+    if (replaced_node) {
+      new (&replaced_node->asEntry()) Entry(std::move(replaced_entry));
+    } else {
       // If re-inserting the old entry fail for some reason, we give up
       // on inserting the new entry and restore the old entry.
       *node = std::move(replaced_entry);
       return nullptr;
     }
+    return insertEntry(trie_node, key, seed, hash, hash_offset, level + 1, exists);
+  }
+
+  Node *insertEntry(const Key &key, bool *exists) {
+    uint32_t hash = hash32(key, _seed);
+    assert(*exists == false);
     return insertEntry(
-        trie_node, std::move(new_entry), seed, hash, hash_offset, level + 1, updated);
+        /*trie_node=*/&_root,
+        key,
+        _seed,
+        hash,
+        /*hash_offset=*/0,
+        /*level=*/0,
+        exists);
   }
 
   // }}} End of Custom container API
@@ -747,8 +756,7 @@ template <class Entry, class Allocator>
 NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertEntry(
     Allocator &allocator,
     int logical_index,
-    Entry &&new_entry,
-    Node *parent,
+    const NodeTemplate<Entry, Allocator> *parent,
     size_t expected_hamt_size,
     uint32_t level) {
   const uint32_t i = physicalIndex(logical_index);
@@ -791,8 +799,8 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertEntr
   assert((_bitmap & (0x1 << logical_index)) == 0 && "Logical index should be empty");
   _bitmap |= 0x1 << logical_index;
 
-  // Insert at allocated position
-  return new (&_base[i]) Node(new_entry, parent);
+  // Return allocated position
+  return _base[i].setEntryParent(parent);
 }
 
 #ifdef TESTS
@@ -938,15 +946,16 @@ NodeTemplate<Entry, Allocator> &NodeTemplate<Entry, Allocator>::operator=(
 }
 
 template <class Entry, class Allocator>
-NodeTemplate<Entry, Allocator>::NodeTemplate(const Entry &entry, NodeTemplate *parent)
-    : _parent((NodeTemplate *)((uintptr_t)parent | (uintptr_t)0x1)) {
-  new (&_either.entry) Entry(entry);
+NodeTemplate<Entry, Allocator> *NodeTemplate<Entry, Allocator>::setEntryParent(
+    const NodeTemplate *parent) {
+  _parent = (NodeTemplate *)((uintptr_t)parent | (uintptr_t)0x1);
+  return this;
 }
 
 template <class Entry, class Allocator>
-NodeTemplate<Entry, Allocator>::NodeTemplate(Entry &&entry, NodeTemplate *parent)
-    : _parent((NodeTemplate *)((uintptr_t)parent | (uintptr_t)0x1)) {
-  new (&_either.entry) Entry(entry);
+NodeTemplate<Entry, Allocator>::NodeTemplate(Entry &&entry, NodeTemplate *parent) {
+  setEntryParent(parent);
+  new (&_either.entry) Entry(std::move(entry));
 }
 
 template <class Entry, class Allocator>
