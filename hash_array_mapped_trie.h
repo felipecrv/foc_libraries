@@ -429,6 +429,38 @@ class HashArrayMappedTrie {
     _root.swap(other._root);
   }
 
+  // We don't implement emplace*()
+
+  // TODO: merge
+
+  // We don't implement at() to avoid the need of exceptions
+
+  T &operator[](const Key &key) {
+    Key k = key;
+    return (*this)[std::move(k)];
+  }
+
+  T &operator[](Key &&key) {
+    T value{};
+    value_type new_entry = std::make_pair(std::move(key), std::move(value));
+    uint32_t hash = hash32(key, _seed);
+    Node *node = insertEntry(
+        /*trie_node=*/&_root,
+        std::move(new_entry),
+        _seed,
+        hash,
+        /*hash_offset=*/0,
+        /*level=*/0,
+        /*updated=*/nullptr);  // Update not allowed
+    assert(node);              // nullptr here is a bug in the hash function
+    return node->asEntry().second;
+  }
+
+  size_type count(const Key &key) const {
+    const Node *node = const_cast<HashArrayMappedTrie *>(this)->findNode(key);
+    return node ? 1 : 0;
+  }
+
   iterator find(const Key &key) {
     const auto *node = findNode(key);
     return iterator{node};

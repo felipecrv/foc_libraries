@@ -389,6 +389,42 @@ TEST_CASE("InsertDoesntReplace", "[HAMT]") {
   REQUIRE(hamt.find(2)->second == 20);
 }
 
+TEST_CASE("operator[]", "[HAMT]") {
+  HAMT hamt;
+  for (int64_t i = 0; i < 2048; i++) {
+    REQUIRE(hamt.count(i) == 0);
+    hamt[i] = i * 10;
+    REQUIRE(hamt.find(i)->second == i * 10);
+    REQUIRE(hamt.count(i) == 1);
+    // check size
+    REQUIRE(hamt.size() == i + 1);
+  }
+  hamt.clear();
+  for (int64_t i = 0; i < 2048; i++) {
+    REQUIRE(hamt[i] == 0);
+    hamt[i] = i * 10;
+    REQUIRE(hamt[i] == i * 10);
+    // check size
+    REQUIRE(hamt.size() == i + 1);
+  }
+}
+
+TEST_CASE("CountTest", "[HAMT]") {
+  HAMT hamt;
+  REQUIRE(hamt.count(0) == 0);
+  REQUIRE(hamt.count(1) == 0);
+  hamt.insert(std::make_pair(0, 0));
+  REQUIRE(hamt.count(0) == 1);
+  hamt.insert(std::make_pair(1, 1));
+  REQUIRE(hamt.count(0) == 1);
+  REQUIRE(hamt.count(1) == 1);
+  for (int64_t i = 2; i < 2048; i++) {
+    REQUIRE(hamt.count(i) == 0);
+    hamt.insert(std::make_pair(i, i));
+    REQUIRE(hamt.count(i) == 1);
+  }
+}
+
 TEST_CASE("NonCopyableInsertionTest", "[HAMT]") {
   /* using HAMT = foc::HashArrayMappedTrie<int64_t, NonCopyable>; */
 }
