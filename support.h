@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cassert>
+
 // clang-format off
 #ifndef __has_feature
 # define __has_feature(x) 0

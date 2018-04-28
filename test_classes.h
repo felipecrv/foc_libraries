@@ -113,3 +113,12 @@ struct NonCopyable {
 };
 
 }  // namespace foc
+
+namespace std {
+
+template <>
+struct hash<foc::Constructable> {
+  size_t operator()(const foc::Constructable &c) const { return std::hash<int>{}(c.getValue()); }
+};
+
+}  // namespace std

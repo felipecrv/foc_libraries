@@ -439,7 +439,8 @@ class HashArrayMappedTrie {
     assert(node);  // nullptr here is a bug in the hash function
     auto &entry = node->asEntry();
     if (!exists) {
-      new (&entry) Entry(key, T());
+      new (&entry.first) Key(key);
+      new (&entry.second) T();
     }
     return entry.second;
   }
@@ -450,7 +451,8 @@ class HashArrayMappedTrie {
     assert(node);  // nullptr here is a bug in the hash function
     auto &entry = node->asEntry();
     if (!exists) {
-      new (&entry) Entry(std::move(key), T());
+      new (&entry.first) Key(std::move(key));
+      new (&entry.second) T();
     }
     return entry.second;
   }
@@ -490,31 +492,42 @@ class HashArrayMappedTrie {
 
   // Custom container API {{{
 
-  bool put(Entry &&new_entry) {
+  bool put(value_type &&new_entry) {
     bool exists = false;
     Node *node = insertEntry(/*key=*/new_entry.first, &exists);
-    assert(node);
+    assert(node && "Hash function is buggy");
     if (node == nullptr) {
-      // This will be nullptr, only of a really terrible hash function is used.
       return false;
     }
     auto &entry = node->asEntry();
     if (exists) {
       entry.second = std::move(new_entry.second);
     } else {
-      new (&entry) Entry(std::move(new_entry));
+      new (&entry)
+          Entry(std::move(const_cast<Key &>(new_entry.first)), std::move(new_entry.second));
     }
     return exists;
   }
 
-  bool put(const Key &key, const T &value) {
-    auto new_entry = std::make_pair(key, value);
-    return put(std::move(new_entry));
+  bool put(const value_type &new_entry) {
+    bool exists = false;
+    Node *node = insertEntry(/*key=*/new_entry.first, &exists);
+    assert(node && "Hash function is buggy");
+    if (node == nullptr) {
+      return false;
+    }
+    auto &entry = node->asEntry();
+    if (exists) {
+      entry.second = new_entry.second;
+    } else {
+      new (&entry) Entry(new_entry);
+    }
+    return exists;
   }
 
-  bool put(Key &&key, T &&value) {
-    auto new_entry = std::make_pair(std::move(key), std::move(value));
-    return put(std::move(new_entry));
+  template <typename T1, typename T2>
+  bool put(T1 &&key, T2 &&value) {
+    return put(std::make_pair(std::forward<const T1>(key), std::forward<T2>(value)));
   }
 
   const Node *findNode(const Key &key) {

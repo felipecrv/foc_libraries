@@ -4,12 +4,15 @@
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 
+#include "test_classes.h"
+
 #define TESTS
 #define HAMT_IMPLEMENTATION
 #include "hash_array_mapped_trie.h"
 #include "hash_array_mapped_trie_test_helpers.h"
 
 using foc::HashArrayMappedTrie;
+using foc::Constructable;
 
 using HAMT = HashArrayMappedTrie<int64_t, int64_t>;
 
@@ -122,15 +125,13 @@ TEST_CASE("BitmapTrieInsertEntryTest", "[BitmapTrie]") {
   MallocAllocator allocator;
   trie.allocate(allocator, 1);
 
-  auto e = std::make_pair(40LL, 4LL);
-  trie.insertEntry(allocator, 4, nullptr, 2, 0)->asEntry() = std::move(e);
+  trie.insertEntry(allocator, 4, nullptr, 2, 0)->asEntry() = std::make_pair(40LL, 4LL);
   REQUIRE(trie.bitmap() == 16);  // 010000
   REQUIRE(trie.size() == 1);
   REQUIRE(trie.physicalGet(0).asEntry().first == 40);
   REQUIRE(trie.physicalGet(0).asEntry().second == 4);
 
-  e = std::make_pair(20L, 2L);
-  trie.insertEntry(allocator, 2, nullptr, 2, 0)->asEntry() = std::move(e);
+  trie.insertEntry(allocator, 2, nullptr, 2, 0)->asEntry() = std::make_pair(20L, 2L);
   REQUIRE(trie.bitmap() == 20);  // 010100
   REQUIRE(trie.size() == 2);
   REQUIRE(trie.physicalGet(0).asEntry().first == 20);
@@ -138,8 +139,7 @@ TEST_CASE("BitmapTrieInsertEntryTest", "[BitmapTrie]") {
   REQUIRE(trie.physicalGet(1).asEntry().first == 40);
   REQUIRE(trie.physicalGet(1).asEntry().second == 4);
 
-  e = std::make_pair(30L, 3L);
-  trie.insertEntry(allocator, 3, nullptr, 2, 0)->asEntry() = std::move(e);
+  trie.insertEntry(allocator, 3, nullptr, 2, 0)->asEntry() = std::make_pair(30L, 3L);
   REQUIRE(trie.bitmap() == 28);  // 011100
   REQUIRE(trie.size() == 3);
   REQUIRE(trie.physicalGet(0).asEntry().first == 20);
@@ -149,8 +149,7 @@ TEST_CASE("BitmapTrieInsertEntryTest", "[BitmapTrie]") {
   REQUIRE(trie.physicalGet(2).asEntry().first == 40);
   REQUIRE(trie.physicalGet(2).asEntry().second == 4);
 
-  e = std::make_pair(0LL, 0LL);
-  *trie.insertEntry(allocator, 0, nullptr, 2, 0) = std::move(e);
+  *trie.insertEntry(allocator, 0, nullptr, 2, 0) = std::make_pair(0LL, 0LL);
   REQUIRE(trie.bitmap() == 29);  // 011101
   REQUIRE(trie.size() == 4);
   REQUIRE(trie.physicalGet(0).asEntry().first == 0);
@@ -162,8 +161,7 @@ TEST_CASE("BitmapTrieInsertEntryTest", "[BitmapTrie]") {
   REQUIRE(trie.physicalGet(3).asEntry().first == 40);
   REQUIRE(trie.physicalGet(3).asEntry().second == 4);
 
-  e = std::make_pair(50LL, 5LL);
-  trie.insertEntry(allocator, 5, nullptr, 2, 0)->asEntry() = std::move(e);
+  trie.insertEntry(allocator, 5, nullptr, 2, 0)->asEntry() = std::make_pair(50LL, 5LL);
   REQUIRE(trie.bitmap() == 61);  // 111101
   REQUIRE(trie.size() == 5);
   REQUIRE(trie.physicalGet(0).asEntry().first == 0);
@@ -177,8 +175,7 @@ TEST_CASE("BitmapTrieInsertEntryTest", "[BitmapTrie]") {
   REQUIRE(trie.physicalGet(4).asEntry().first == 50);
   REQUIRE(trie.physicalGet(4).asEntry().second == 5);
 
-  e = std::make_pair(10LL, 1LL);
-  trie.insertEntry(allocator, 1, nullptr, 2, 0)->asEntry() = std::move(e);
+  trie.insertEntry(allocator, 1, nullptr, 2, 0)->asEntry() = std::make_pair(10LL, 1LL);
   REQUIRE(trie.bitmap() == 63);  // 111111
   REQUIRE(trie.size() == 6);
   REQUIRE(trie.physicalGet(0).asEntry().first == 0);
@@ -194,8 +191,7 @@ TEST_CASE("BitmapTrieInsertEntryTest", "[BitmapTrie]") {
   REQUIRE(trie.physicalGet(5).asEntry().first == 50);
   REQUIRE(trie.physicalGet(5).asEntry().second == 5);
 
-  e = std::make_pair(310LL, 31L);
-  trie.insertEntry(allocator, 31, nullptr, 2, 0)->asEntry() = std::move(e);
+  trie.insertEntry(allocator, 31, nullptr, 2, 0)->asEntry() = std::make_pair(310LL, 31L);
   REQUIRE(trie.bitmap() == (63 | (0x1 << 31)));
   REQUIRE(trie.size() == 7);
   REQUIRE(trie.physicalGet(6).asEntry().first == 310);
@@ -341,7 +337,7 @@ TEST_CASE("NodeInitializationAsBitmapTrieTest", "[Node]") {
 TEST_CASE("NodeInitializationAsEntryTest", "[Node]") {
   HAMT::Node parent(nullptr);
 
-  std::pair<int64_t, int64_t> entry = std::make_pair(2, 4);
+  std::pair<const int64_t, int64_t> entry(2, 4);
   HAMT::Node node(std::move(entry), &parent);
   REQUIRE(node.isEntry());
   REQUIRE(!node.isTrie());
@@ -410,6 +406,134 @@ TEST_CASE("operator[]", "[HAMT]") {
     // check size
     REQUIRE(hamt.size() == i + 1);
   }
+}
+
+TEST_CASE("InsertDoesntCopyUnnecessarily", "[HAMT]") {
+  foc::HashArrayMappedTrie<Constructable, Constructable> hamt;
+  REQUIRE(Constructable::getNumConstructorCalls() == 0);
+  REQUIRE(Constructable::getNumDestructorCalls() == 0);
+
+  const Constructable one(1);
+  const Constructable two(2);
+  Constructable key(one);
+  REQUIRE(Constructable::getNumConstructorCalls() == 3);
+  Constructable::reset();
+
+  std::pair<const Constructable, Constructable> entry(key, one);
+  std::pair<const Constructable, Constructable> new_entry(key, one);
+  REQUIRE(Constructable::getNumCopyConstructorCalls() == 4);
+  Constructable::reset();
+
+  // insert(const value_type&)
+  hamt.insert(entry);
+  REQUIRE(Constructable::getNumConstructorCalls() == 2);  // key and value constructed in entry
+  REQUIRE(Constructable::getNumMoveConstructorCalls() == 0);
+  REQUIRE(Constructable::getNumCopyConstructorCalls() == 2);
+  REQUIRE(Constructable::getNumDestructorCalls() == 0);
+  REQUIRE(Constructable::getNumAssignmentCalls() == 0);
+  REQUIRE(Constructable::getNumMoveAssignmentCalls() == 0);
+  REQUIRE(Constructable::getNumCopyAssignmentCalls() == 0);
+  Constructable::reset();
+
+  hamt.insert(new_entry);
+  REQUIRE(Constructable::getNumConstructorCalls() == 0);  // key already in map, nothing was copied
+  REQUIRE(Constructable::getNumMoveConstructorCalls() == 0);
+  REQUIRE(Constructable::getNumCopyConstructorCalls() == 0);
+  REQUIRE(Constructable::getNumDestructorCalls() == 0);
+  REQUIRE(Constructable::getNumAssignmentCalls() == 0);
+  REQUIRE(Constructable::getNumMoveAssignmentCalls() == 0);
+  REQUIRE(Constructable::getNumCopyAssignmentCalls() == 0);
+  hamt.clear();
+  Constructable::reset();
+
+  // put(const value_type&)
+  hamt.put(entry);
+  REQUIRE(Constructable::getNumConstructorCalls() == 2);  // key and value constructed in entry
+  REQUIRE(Constructable::getNumMoveConstructorCalls() == 0);
+  REQUIRE(Constructable::getNumCopyConstructorCalls() == 2);
+  REQUIRE(Constructable::getNumDestructorCalls() == 0);
+  REQUIRE(Constructable::getNumAssignmentCalls() == 0);
+  REQUIRE(Constructable::getNumMoveAssignmentCalls() == 0);
+  REQUIRE(Constructable::getNumCopyAssignmentCalls() == 0);
+  Constructable::reset();
+
+  hamt.put(new_entry);
+  REQUIRE(Constructable::getNumConstructorCalls() == 0);
+  REQUIRE(Constructable::getNumMoveConstructorCalls() == 0);
+  REQUIRE(Constructable::getNumCopyConstructorCalls() == 0);
+  REQUIRE(Constructable::getNumDestructorCalls() == 0);
+  REQUIRE(Constructable::getNumAssignmentCalls() == 1);  // only value was assigned into the map
+  REQUIRE(Constructable::getNumMoveAssignmentCalls() == 0);
+  REQUIRE(Constructable::getNumCopyAssignmentCalls() == 1);
+  hamt.clear();
+  Constructable::reset();
+
+  // put(value_type &&)
+  hamt.put(std::move(entry));
+  REQUIRE(Constructable::getNumConstructorCalls() == 2);  // key and value were moved into the map
+  REQUIRE(Constructable::getNumMoveConstructorCalls() == 2);
+  REQUIRE(Constructable::getNumCopyConstructorCalls() == 0);
+  REQUIRE(Constructable::getNumDestructorCalls() == 0);
+  REQUIRE(Constructable::getNumAssignmentCalls() == 0);
+  REQUIRE(Constructable::getNumMoveAssignmentCalls() == 0);
+  REQUIRE(Constructable::getNumCopyAssignmentCalls() == 0);
+  Constructable::reset();
+
+  hamt.put(std::move(new_entry));
+  REQUIRE(Constructable::getNumConstructorCalls() == 0);
+  REQUIRE(Constructable::getNumMoveConstructorCalls() == 0);
+  REQUIRE(Constructable::getNumCopyConstructorCalls() == 0);
+  REQUIRE(Constructable::getNumDestructorCalls() == 0);
+  REQUIRE(Constructable::getNumAssignmentCalls() == 1);
+  REQUIRE(Constructable::getNumMoveAssignmentCalls() ==
+          1);  // only value was move-assigned into the map
+  REQUIRE(Constructable::getNumCopyAssignmentCalls() == 0);
+  hamt.clear();
+  Constructable::reset();
+
+  // operator[](const Key&)
+  auto ivalue = hamt[entry.first].getValue();
+  REQUIRE(ivalue == 0);
+  REQUIRE(Constructable::getNumConstructorCalls() == 2);  // key copy, default value constructor
+  REQUIRE(Constructable::getNumMoveConstructorCalls() == 0);
+  REQUIRE(Constructable::getNumCopyConstructorCalls() == 1);
+  REQUIRE(Constructable::getNumDestructorCalls() == 0);
+  REQUIRE(Constructable::getNumAssignmentCalls() == 0);
+  REQUIRE(Constructable::getNumMoveAssignmentCalls() == 0);
+  REQUIRE(Constructable::getNumCopyAssignmentCalls() == 0);
+
+  hamt[new_entry.first] = new_entry.second;
+  REQUIRE(Constructable::getNumConstructorCalls() == 2);  // key copy, default value constructor
+  REQUIRE(Constructable::getNumMoveConstructorCalls() == 0);
+  REQUIRE(Constructable::getNumCopyConstructorCalls() == 1);
+  REQUIRE(Constructable::getNumDestructorCalls() == 0);
+  REQUIRE(Constructable::getNumAssignmentCalls() == 1);
+  REQUIRE(Constructable::getNumMoveAssignmentCalls() == 0);
+  REQUIRE(Constructable::getNumCopyAssignmentCalls() == 1);  // assignment
+  hamt.clear();
+  Constructable::reset();
+
+  // operatorp[](Key &&)
+  ivalue = hamt[std::move(key)].getValue();
+  REQUIRE(ivalue == 0);
+  REQUIRE(Constructable::getNumConstructorCalls() == 2);  // key move, default value constructor
+  REQUIRE(Constructable::getNumMoveConstructorCalls() == 1);
+  REQUIRE(Constructable::getNumCopyConstructorCalls() == 0);
+  REQUIRE(Constructable::getNumDestructorCalls() == 0);
+  REQUIRE(Constructable::getNumAssignmentCalls() == 0);
+  REQUIRE(Constructable::getNumMoveAssignmentCalls() == 0);
+  REQUIRE(Constructable::getNumCopyAssignmentCalls() == 0);
+
+  hamt[std::move(key)] = std::move(new_entry.second);
+  REQUIRE(Constructable::getNumConstructorCalls() == 2);  // key move, default value constructor
+  REQUIRE(Constructable::getNumMoveConstructorCalls() == 1);
+  REQUIRE(Constructable::getNumCopyConstructorCalls() == 0);
+  REQUIRE(Constructable::getNumDestructorCalls() == 0);
+  REQUIRE(Constructable::getNumAssignmentCalls() == 1);  // value assignment
+  REQUIRE(Constructable::getNumMoveAssignmentCalls() == 1);
+  REQUIRE(Constructable::getNumCopyAssignmentCalls() == 0);
+  hamt.clear();
+  Constructable::reset();
 }
 
 TEST_CASE("CountTest", "[HAMT]") {
