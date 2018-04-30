@@ -640,18 +640,18 @@ TEST_CASE("ConstIteratorTest", "[HAMT]") {
   // Check the value of begin()
   {
     HAMT::const_iterator it = const_non_empty_hamt.begin();
-    REQUIRE(it->first == 3277);
-    REQUIRE(it->second == 3277);
+    REQUIRE(it->first == 3233);
+    REQUIRE(it->second == 3233);
   }
   {
     HAMT::const_iterator it = const_non_empty_hamt.begin();
-    REQUIRE(it->first == 3277);
-    REQUIRE(it->second == 3277);
+    REQUIRE(it->first == 3233);
+    REQUIRE(it->second == 3233);
   }
   {
     HAMT::const_iterator it = const_non_empty_hamt.cbegin();
-    REQUIRE(it->first == 3277);
-    REQUIRE(it->second == 3277);
+    REQUIRE(it->first == 3233);
+    REQUIRE(it->second == 3233);
   }
 
   int64_t sum_keys = 0;

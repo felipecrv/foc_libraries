@@ -532,33 +532,20 @@ class HashArrayMappedTrie {
 
   const Node *findNode(const Key &key) {
     const BitmapTrie *trie = &_root.asTrie();
-    uint32_t seed = _seed;
-    uint32_t hash = hash32(key, _seed);
+    uint32_t hash = hash32(key);
     uint32_t shift = 0;
     uint32_t t = hash & 0x1f;
 
     while (trie->logicalPositionTaken(t)) {
       const Node *node = &trie->logicalGet(t);
+      // 1) Entry found. Check if keys match.
       if (node->isEntry()) {
         const auto &entry = node->asEntry();
-        // Keys match!
-        if (_key_equal(entry.first, key)) {
-          return node;
-        }
-        return nullptr;
+        return _key_equal(entry.first, key) ? node : nullptr;
       }
-
-      // The position stores a trie. Keep searching.
-
-      if (LIKELY(shift < 25)) {
-        shift += 5;
-      } else {
-        shift = 0;
-        seed = next_seed(seed);
-        hash = hash32(key, seed);
-      }
-
+      // 2) The position stores a trie. Keep searching.
       trie = &node->asTrie();
+      shift = (shift < 25) ? shift + 5 : 0;
       t = (hash >> shift) & 0x1f;
     }
 
@@ -575,7 +562,6 @@ class HashArrayMappedTrie {
 
   Node *insertEntry(Node *trie_node,
                     const Key &key,
-                    uint32_t seed,
                     uint32_t hash,
                     uint32_t shift,
                     uint32_t level,
@@ -583,7 +569,7 @@ class HashArrayMappedTrie {
     // Insert the entry directly in the trie if the t slot is empty.
     uint32_t t = (hash >> shift) & 0x1f;
     BitmapTrie *trie = &trie_node->asTrie();
-    if (UNLIKELY(!trie->logicalPositionTaken(t))) {
+    if (!trie->logicalPositionTaken(t)) {
       _count++;
       assert(!*exists);
       return trie->insertEntry(_allocator,
@@ -596,15 +582,8 @@ class HashArrayMappedTrie {
     // If the Node in t is a trie, insert recursively.
     Node *node = &trie->logicalGet(t);
     if (node->isTrie()) {
-      if (LIKELY(shift < 25)) {
-        shift += 5;
-      } else {
-        shift = 0;
-        seed = next_seed(seed);
-        hash = hash32(key, seed);
-      }
-      return insertEntry(
-          /*trie_node=*/node, key, seed, hash, shift, level + 1, exists);
+      shift = (shift < 25) ? shift + 5 : 0;
+      return insertEntry(/*trie_node=*/node, key, hash, shift, level + 1, exists);
     }
 
     // If the Node is an entry and the key matches, override the value.
@@ -617,57 +596,30 @@ class HashArrayMappedTrie {
     }
 
     // Has to replace the entry with a trie.
-
-    uint32_t old_entry_hash;
-    if (LIKELY(shift < 25)) {
-      shift += 5;
-      old_entry_hash = hash32(old_entry->first, seed);
-    } else {
-      shift = 0;
-      seed = next_seed(seed);
-      hash = hash32(key, seed);
-      old_entry_hash = hash32(old_entry->first, seed);
-      // If a really terrible hash function is used, we fail insertion here to
-      // prevent an infinite loop.
-      if (UNLIKELY(hash == old_entry_hash)) {
-        return nullptr;
-      }
-    }
-
     // This new trie will contain the replaced_entry and the new entry.
     Entry replaced_entry(std::move(*old_entry));
     trie_node = node->BitmapTrie(_allocator, node->parent(), 2);
     _count--;
 
-    auto replaced_node = insertEntry(trie_node,
-                                     /*key=*/replaced_entry.first,
-                                     seed,
-                                     /*hash=*/old_entry_hash,
-                                     shift,
-                                     level + 1,
-                                     exists);
-    if (replaced_node) {
+    shift = (shift < 25) ? shift + 5 : 0;
+    uint32_t replaced_entry_hash = hash32(replaced_entry.first);
+
+    if (hash != replaced_entry_hash) {
+      auto replaced_node = insertEntry(trie_node,
+                                       /*key=*/replaced_entry.first,
+                                       /*hash=*/replaced_entry_hash,
+                                       shift,
+                                       level + 1,
+                                   exists);
       new (&replaced_node->asEntry()) Entry(std::move(replaced_entry));
-    } else {
-      // If re-inserting the old entry fail for some reason, we give up
-      // on inserting the new entry and restore the old entry.
-      *node = std::move(replaced_entry);
-      return nullptr;
+      return insertEntry(trie_node, key, hash, shift, level + 1, exists);
     }
-    return insertEntry(trie_node, key, seed, hash, shift, level + 1, exists);
+    return nullptr;
   }
 
   Node *insertEntry(const Key &key, bool *exists) {
-    uint32_t hash = hash32(key, _seed);
     assert(*exists == false);
-    return insertEntry(
-        /*trie_node=*/&_root,
-        key,
-        _seed,
-        hash,
-        /*shift=*/0,
-        /*level=*/0,
-        exists);
+    return insertEntry(/*trie_node=*/&_root, key, /*hash=*/hash32(key), /*shift=*/0, /*level=*/0, exists);
   }
 
   // }}} End of Custom container API
@@ -678,14 +630,9 @@ class HashArrayMappedTrie {
     return static_cast<Node *>(ptr);
   }
 
-  uint32_t next_seed(uint32_t seed) const {
-    seed ^= seed << 13;
-    seed ^= seed >> 17;
-    seed ^= seed << 5;
-    return seed;
+  uint32_t hash32(const Key &key) const {
+    return _seed ^ (_hasher(key) + 0x9e3779b9 + (_seed << 6) + (_seed >> 2));
   }
-
-  uint32_t hash32(const Key &key, uint32_t seed) const { return seed ^ _hasher(key); }
 
 #ifdef TESTS
   // clang-format off
