@@ -534,7 +534,7 @@ class HashArrayMappedTrie {
     const BitmapTrie *trie = &_root.asTrie();
     uint32_t seed = _seed;
     uint32_t hash = hash32(key, _seed);
-    uint32_t hash_offset = 0;
+    uint32_t shift = 0;
     uint32_t t = hash & 0x1f;
 
     while (trie->logicalPositionTaken(t)) {
@@ -550,16 +550,16 @@ class HashArrayMappedTrie {
 
       // The position stores a trie. Keep searching.
 
-      if (LIKELY(hash_offset < 25)) {
-        hash_offset += 5;
+      if (LIKELY(shift < 25)) {
+        shift += 5;
       } else {
-        hash_offset = 0;
+        shift = 0;
         seed = next_seed(seed);
         hash = hash32(key, seed);
       }
 
       trie = &node->asTrie();
-      t = (hash >> hash_offset) & 0x1f;
+      t = (hash >> shift) & 0x1f;
     }
 
     return nullptr;
@@ -577,34 +577,34 @@ class HashArrayMappedTrie {
                     const Key &key,
                     uint32_t seed,
                     uint32_t hash,
-                    uint32_t hash_offset,
+                    uint32_t shift,
                     uint32_t level,
                     bool *exists) {
-    // Insert the entry directly in the trie if the hash_slice slot is empty.
-    uint32_t hash_slice = (hash >> hash_offset) & 0x1f;
+    // Insert the entry directly in the trie if the t slot is empty.
+    uint32_t t = (hash >> shift) & 0x1f;
     BitmapTrie *trie = &trie_node->asTrie();
-    if (UNLIKELY(!trie->logicalPositionTaken(hash_slice))) {
+    if (UNLIKELY(!trie->logicalPositionTaken(t))) {
       _count++;
       assert(!*exists);
       return trie->insertEntry(_allocator,
-                               /*logical_index=*/hash_slice,
+                               /*logical_index=*/t,
                                /*parent=*/trie_node,
                                /*expected_hamt_size=*/_count,
                                level);
     }
 
-    // If the Node in hash_slice is a trie, insert recursively.
-    Node *node = &trie->logicalGet(hash_slice);
+    // If the Node in t is a trie, insert recursively.
+    Node *node = &trie->logicalGet(t);
     if (node->isTrie()) {
-      if (LIKELY(hash_offset < 25)) {
-        hash_offset += 5;
+      if (LIKELY(shift < 25)) {
+        shift += 5;
       } else {
-        hash_offset = 0;
+        shift = 0;
         seed = next_seed(seed);
         hash = hash32(key, seed);
       }
       return insertEntry(
-          /*trie_node=*/node, key, seed, hash, hash_offset, level + 1, exists);
+          /*trie_node=*/node, key, seed, hash, shift, level + 1, exists);
     }
 
     // If the Node is an entry and the key matches, override the value.
@@ -619,11 +619,11 @@ class HashArrayMappedTrie {
     // Has to replace the entry with a trie.
 
     uint32_t old_entry_hash;
-    if (LIKELY(hash_offset < 25)) {
-      hash_offset += 5;
+    if (LIKELY(shift < 25)) {
+      shift += 5;
       old_entry_hash = hash32(old_entry->first, seed);
     } else {
-      hash_offset = 0;
+      shift = 0;
       seed = next_seed(seed);
       hash = hash32(key, seed);
       old_entry_hash = hash32(old_entry->first, seed);
@@ -643,7 +643,7 @@ class HashArrayMappedTrie {
                                      /*key=*/replaced_entry.first,
                                      seed,
                                      /*hash=*/old_entry_hash,
-                                     hash_offset,
+                                     shift,
                                      level + 1,
                                      exists);
     if (replaced_node) {
@@ -654,7 +654,7 @@ class HashArrayMappedTrie {
       *node = std::move(replaced_entry);
       return nullptr;
     }
-    return insertEntry(trie_node, key, seed, hash, hash_offset, level + 1, exists);
+    return insertEntry(trie_node, key, seed, hash, shift, level + 1, exists);
   }
 
   Node *insertEntry(const Key &key, bool *exists) {
@@ -665,7 +665,7 @@ class HashArrayMappedTrie {
         key,
         _seed,
         hash,
-        /*hash_offset=*/0,
+        /*shift=*/0,
         /*level=*/0,
         exists);
   }
