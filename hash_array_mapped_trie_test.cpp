@@ -592,25 +592,23 @@ TEST_CASE("ParentTestWithIdentityFunction", "[HAMT]") {
 TEST_CASE("ParentTestConstantFunction", "[HAMT]") {
   using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t, ConstantFunction>;
   // Lookups fail when a constant hash function is used
-  loose_parent_test<HAMT>(64);
+  parent_test<HAMT>(64);
 }
 
 TEST_CASE("PhysicalIndexOfNodeInTrieWithAParent", "[HAMT]") {
   using HAMT = foc::HashArrayMappedTrie<int64_t, int64_t, IdentityFunction>;
   HAMT hamt;
-  hamt._seed = 0;
   HAMT::Node *root = &hamt._root;
   for (int64_t i = 31; i >= 0; i--) {
     hamt.put(i, i);
   }
   for (uint32_t i = 0; i < 32; i++) {
-    REQUIRE(root->asTrie().physicalIndex(i) == i);
+    auto physical_index = root->asTrie().physicalIndex(i);
     HAMT::Node *logical_node = &root->asTrie().logicalGet(i);
-    HAMT::Node *physical_node = &root->asTrie().physicalGet(i);
-    REQUIRE(logical_node->asEntry().first == i);
+    HAMT::Node *physical_node = &root->asTrie().physicalGet(physical_index);
     REQUIRE(logical_node == physical_node);
     REQUIRE(logical_node->parent() == root);
-    REQUIRE(root->asTrie().physicalIndexOf(logical_node) == i);
+    REQUIRE(root->asTrie().physicalIndexOf(logical_node) == physical_index);
   }
 }
 

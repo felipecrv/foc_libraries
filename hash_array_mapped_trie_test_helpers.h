@@ -123,6 +123,9 @@ static void check_parent_pointers(HAMT &hamt) {
 template <class HAMT>
 static void check_lookups(HAMT &hamt, int64_t n) {
   for (int64_t i = 0; i < n; i++) {
+    // Ensure inserting doesn't override the existing values
+    hamt.insert(std::make_pair(i, -(i + 1)));
+    // Check the lookup
     auto found = hamt.findValue(i);
     REQUIRE(found != nullptr);
     REQUIRE(*found == i);
@@ -157,27 +160,6 @@ static void parent_test(int64_t n) {
     size++;
     REQUIRE(hamt.size() == size);
     check_lookups(hamt, i);
-    check_parent_pointers(hamt);
-  }
-}
-
-template <class HAMT>
-static void loose_parent_test(int64_t n) {
-  HAMT hamt;
-
-  // Insert many items into the HAMT and check
-  // the parent pointers after every insertion.
-  for (int64_t i = 0; i < n; i++) {
-    auto it = hamt.insert(std::make_pair(i, i));
-    if (it == nullptr) {
-      auto not_found = hamt.findValue(i);
-      REQUIRE(not_found == nullptr);
-    } else {
-      REQUIRE(it->second == i);
-      auto found = hamt.findValue(i);
-      REQUIRE(found != nullptr);
-      REQUIRE(*found == i);
-    }
     check_parent_pointers(hamt);
   }
 }

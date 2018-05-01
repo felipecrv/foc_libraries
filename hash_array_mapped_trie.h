@@ -12,6 +12,7 @@
 #include <functional>
 #include <initializer_list>
 #include <iterator>
+#include <queue>
 #include <stack>
 #include <string>
 #include <utility>
@@ -536,8 +537,9 @@ class HashArrayMappedTrie {
     uint32_t shift = 0;
     uint32_t t = hash & 0x1f;
 
+    const Node *node = nullptr;
     while (trie->logicalPositionTaken(t)) {
-      const Node *node = &trie->logicalGet(t);
+      node = &trie->logicalGet(t);
       // 1) Entry found. Check if keys match.
       if (node->isEntry()) {
         const auto &entry = node->asEntry();
@@ -545,8 +547,39 @@ class HashArrayMappedTrie {
       }
       // 2) The position stores a trie. Keep searching.
       trie = &node->asTrie();
-      shift = (shift < 25) ? shift + 5 : 0;
+      if (shift >= 32 - 5) {
+        // We probably need to perform a serch on the collisions
+        break;
+      }
+      shift += 5;
       t = (hash >> shift) & 0x1f;
+    }
+
+    if (!node) {
+      return nullptr;
+    }
+
+    // The hash was exhausted, perform a Depth-First Search because at this trie
+    // depth the positions are meaningless.
+    std::stack<const Node *> dfs_stack;
+    dfs_stack.push(node);
+    while (!dfs_stack.empty()) {
+      node = dfs_stack.top();
+      dfs_stack.pop();
+
+      trie = &node->asTrie();
+      for (uint32_t i = 0; i < trie->size(); i++) {
+        const Node *child_node = &trie->physicalGet(i);
+        if (child_node->isTrie()) {
+          dfs_stack.push(child_node);
+        } else {
+          const Entry &entry = child_node->asEntry();
+          if (_key_equal(entry.first, key)) {
+            // Found!
+            return child_node;
+          }
+        }
+      }
     }
 
     return nullptr;
@@ -560,18 +593,95 @@ class HashArrayMappedTrie {
     return nullptr;
   }
 
+  Node *insertHashCollidedEntry(Node *trie_node, const Key &key, bool *exists) {
+    assert(!*exists);
+    // Insert in Breadth-First Order for faster Depth-First Search
+    std::queue<Node *> bfs_queue;
+    Node *non_full_trie_node = nullptr;  // BitmapTrie Node that can fit the new entry
+    Node *first_entry_parent = nullptr;
+    Node *first_entry_node = nullptr;  // The first Node (in BFS order) that's an Entry
+
+    bfs_queue.push(trie_node);
+    while (!bfs_queue.empty()) {
+      trie_node = bfs_queue.front();
+      bfs_queue.pop();
+      BitmapTrie &trie = trie_node->asTrie();
+      if (!non_full_trie_node && trie.size() < 32) {
+        assert(trie.size() == trie.physicalIndex(trie.size()));
+        non_full_trie_node = trie_node;
+      }
+      for (uint32_t i = 0; i < trie.size(); i++) {
+        Node *child_node = &trie.physicalGet(i);
+        if (child_node->isTrie()) {
+          bfs_queue.push(child_node);
+        } else {
+          auto &entry = child_node->asEntry();
+          if (_key_equal(entry.first, key)) {
+            *exists = true;
+            return child_node;
+          }
+          if (!first_entry_node) {
+            first_entry_parent = trie_node;
+            first_entry_node = child_node;
+          }
+        }
+      }
+    }
+
+    // If a non-full trie Node was found, append the new Entry to it.
+    if (non_full_trie_node) {
+      BitmapTrie &trie = trie_node->asTrie();
+      _count++;
+      return trie.insertEntry(_allocator,
+                              /*logical_index=*/trie.size(),
+                              /*parent=*/trie_node,
+                              /*expected_hamt_size=*/_count,
+                              /*level=floor(32/5)+1*/ 7);
+    }
+
+    // Otherwise, replacing an Entry with a new BitmapTrie that can fit more
+    // entries is necessary.
+
+    assert(first_entry_node &&
+           "Search started on a BitmapTrie, an entry (leaf) should have been found");
+    assert(first_entry_parent);
+
+    Entry replaced_entry(std::move(first_entry_node->asEntry()));
+    trie_node = first_entry_node->BitmapTrie(_allocator, first_entry_parent, 2);
+
+    BitmapTrie &trie = trie_node->asTrie();
+    auto replaced_node = trie.insertEntry(_allocator,
+                                          /*logical_index=*/0,
+                                          /*parent=*/trie_node,
+                                          /*expected_hamt_size=*/_count,
+                                          /*level=floor(32/5)+1*/ 7);
+    new (&replaced_node->asEntry()) Entry(std::move(replaced_entry));
+    _count++;
+    return trie.insertEntry(_allocator,
+                            /*logical_index=*/1,
+                            /*parent=*/trie_node,
+                            /*expected_hamt_size=*/_count,
+                            /*level=floor(32/5)+1*/ 7);
+  }
+
   Node *insertEntry(Node *trie_node,
                     const Key &key,
                     uint32_t hash,
                     uint32_t shift,
                     uint32_t level,
                     bool *exists) {
+    assert(!*exists);
+    BitmapTrie *trie = &trie_node->asTrie();
+
+    // Exhausted hash
+    if (UNLIKELY(shift >= 32)) {
+      return insertHashCollidedEntry(trie_node, key, exists);
+    }
+
     // Insert the entry directly in the trie if the t slot is empty.
     uint32_t t = (hash >> shift) & 0x1f;
-    BitmapTrie *trie = &trie_node->asTrie();
     if (!trie->logicalPositionTaken(t)) {
       _count++;
-      assert(!*exists);
       return trie->insertEntry(_allocator,
                                /*logical_index=*/t,
                                /*parent=*/trie_node,
@@ -582,44 +692,36 @@ class HashArrayMappedTrie {
     // If the Node in t is a trie, insert recursively.
     Node *node = &trie->logicalGet(t);
     if (node->isTrie()) {
-      shift = (shift < 25) ? shift + 5 : 0;
-      return insertEntry(/*trie_node=*/node, key, hash, shift, level + 1, exists);
+      return insertEntry(/*trie_node=*/node, key, hash, shift + 5, level + 1, exists);
     }
 
-    // If the Node is an entry and the key matches, override the value.
-    Entry *old_entry = &node->asEntry();
-    if (_key_equal(old_entry->first, key)) {
-      // Keys match!
-      assert(!*exists);
+    // Check if the Node is an entry and the key matches!
+    Entry *entry = &node->asEntry();
+    if (_key_equal(entry->first, key)) {
       *exists = true;
       return node;
     }
 
     // Has to replace the entry with a trie.
     // This new trie will contain the replaced_entry and the new entry.
-    Entry replaced_entry(std::move(*old_entry));
+    Entry replaced_entry(std::move(*entry));
     trie_node = node->BitmapTrie(_allocator, node->parent(), 2);
     _count--;
 
-    shift = (shift < 25) ? shift + 5 : 0;
-    uint32_t replaced_entry_hash = hash32(replaced_entry.first);
-
-    if (hash != replaced_entry_hash) {
-      auto replaced_node = insertEntry(trie_node,
-                                       /*key=*/replaced_entry.first,
-                                       /*hash=*/replaced_entry_hash,
-                                       shift,
-                                       level + 1,
-                                   exists);
-      new (&replaced_node->asEntry()) Entry(std::move(replaced_entry));
-      return insertEntry(trie_node, key, hash, shift, level + 1, exists);
-    }
-    return nullptr;
+    auto replaced_node = insertEntry(trie_node,
+                                     /*key=*/replaced_entry.first,
+                                     /*hash=*/hash32(replaced_entry.first),
+                                     shift + 5,
+                                     level + 1,
+                                     exists);
+    new (&replaced_node->asEntry()) Entry(std::move(replaced_entry));
+    return insertEntry(trie_node, key, hash, shift + 5, level + 1, exists);
   }
 
   Node *insertEntry(const Key &key, bool *exists) {
     assert(*exists == false);
-    return insertEntry(/*trie_node=*/&_root, key, /*hash=*/hash32(key), /*shift=*/0, /*level=*/0, exists);
+    return insertEntry(
+        /*trie_node=*/&_root, key, /*hash=*/hash32(key), /*shift=*/0, /*level=*/0, exists);
   }
 
   // }}} End of Custom container API
