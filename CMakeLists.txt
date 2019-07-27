@@ -19,13 +19,7 @@ add_subdirectory(${googletest_SOURCE_DIR})
 include_directories(SYSTEM ${googletest_SOURCE_DIR}/include ${googletest_SOURCE_DIR})
 enable_testing()
 
-# small_vector_test
-add_executable(small_vector_test small_vector_test.cpp)
-add_test(SmallVectorTest small_vector_test)
-
-# hash_array_mapped_trie_test
-add_executable(hash_array_mapped_trie_test hash_array_mapped_trie_test.cpp)
-add_test(HashArrayMappedTrieTest hash_array_mapped_trie_test)
+add_subdirectory(test)
 
 # sqlkit_test
 add_executable(sqlkit_test sqlkit_test.cpp sqlite3.c)

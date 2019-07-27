@@ -8,11 +8,11 @@
 #include <utility>
 
 #define CATCH_CONFIG_MAIN
-#include "catch.hpp"
+#include "../catch.hpp"
 
 #define SMALL_VECTOR_IMPLEMENTATION
-#include "array_ref.h"
-#include "small_vector.h"
+#include "../foc/array_ref.h"
+#include "../foc/small_vector.h"
 
 #include "test_classes.h"
 

@@ -2,13 +2,14 @@
 #include <vector>
 
 #define CATCH_CONFIG_MAIN
-#include "catch.hpp"
+#include "../catch.hpp"
 
 #include "test_classes.h"
 
 #define TESTS
 #define HAMT_IMPLEMENTATION
-#include "hash_array_mapped_trie.h"
+#include "../foc/hash_array_mapped_trie.h"
+
 #include "hash_array_mapped_trie_test_helpers.h"
 
 using foc::HashArrayMappedTrie;
