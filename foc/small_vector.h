@@ -1,6 +1,5 @@
 // 'Normally small' vectors.  Based on llvm/ADT/SmallVector.h
-#ifndef SMALL_VECTOR_H
-#define SMALL_VECTOR_H
+#pragma once
 
 #include <algorithm>
 #include <cassert>
@@ -959,5 +958,3 @@ void foc::SmallVectorBase::GrowPod(void *first_el, size_t min_size_in_bytes, siz
 }
 
 #endif  // SMALL_VECTOR_IMPLEMENTATION
-
-#endif  // SMALL_VECTOR_H

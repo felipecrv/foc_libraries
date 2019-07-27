@@ -1,7 +1,6 @@
 // Array Reference Wrapper.  Based on llvm/ADT/ArrayRef.h
 
-#ifndef ARRAY_REF_H
-#define ARRAY_REF_H
+#pragma once
 
 #include <algorithm>
 #include <vector>
@@ -378,5 +377,3 @@ template <typename T> hash_code hash_value(ArrayRef<T> S) {
 }
 */
 }  // end namespace foc
-
-#endif  // ARRAY_REF_H

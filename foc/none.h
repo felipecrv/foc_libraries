@@ -3,8 +3,7 @@
 //  None, an enumerator for use in implicit constructors of various (usually
 //  templated) types to make such construction more terse.
 
-#ifndef NONE_H
-#define NONE_H
+#pragma once
 
 namespace foc {
 /// A simple null object to allow implicit construction of Optional<T> and
@@ -12,5 +11,3 @@ namespace foc {
 enum class NoneType { None };
 const NoneType None = None;
 }  // namespace foc
-
-#endif  // NONE_H
