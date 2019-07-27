@@ -138,6 +138,8 @@
 #endif
 // clang-format on
 
+namespace foc {
+
 // isPodLike - This is a type trait that is used to determine whether a given
 // type can be copied around with memcpy instead of running ctors etc.
 template <typename T>
@@ -203,3 +205,5 @@ inline uint64_t next_power_of_2(uint64_t x) {
   x |= (x >> 32);
   return x + 1;
 }
+
+}  // namespace foc

@@ -14,6 +14,7 @@
 
 using foc::HashArrayMappedTrie;
 using foc::Constructable;
+using foc::MallocAllocator;
 
 using HAMT = HashArrayMappedTrie<int64_t, int64_t>;
 
@@ -193,7 +194,7 @@ TEST_CASE("BitmapTrieInsertEntryTest", "[BitmapTrie]") {
   REQUIRE(trie.physicalGet(5).asEntry().second == 5);
 
   trie.insertEntry(allocator, 31, nullptr, 2, 0)->asEntry() = std::make_pair(310LL, 31L);
-  REQUIRE(trie.bitmap() == (63 | (0x1 << 31)));
+  REQUIRE(trie.bitmap() == (63u | (0x1u << 31)));
   REQUIRE(trie.size() == 7);
   REQUIRE(trie.physicalGet(6).asEntry().first == 310);
   REQUIRE(trie.physicalGet(6).asEntry().second == 31);
@@ -381,7 +382,7 @@ TEST_CASE("InsertDoesntReplace", "[HAMT]") {
   REQUIRE(hamt.find(1)->second == 1);
   REQUIRE(!hamt.put(2, 20));  // Didn't replace. 2 doesn't exist.
   REQUIRE(hamt.size() == 2);
-  REQUIRE(hamt.put(1, 10));   // 1 is replaced
+  REQUIRE(hamt.put(1, 10));  // 1 is replaced
   REQUIRE(hamt.size() == 2);
   REQUIRE(hamt.find(1)->second == 10);
   REQUIRE(hamt.find(2)->second == 20);
@@ -621,7 +622,7 @@ TEST_CASE("ConstIteratorTest", "[HAMT]") {
   int64_t checksum = 0;
   HAMT non_empty_hamt;
   for (int64_t i = 0; i < 10000; i++) {
-    non_empty_hamt.put( i, i);
+    non_empty_hamt.put(i, i);
     checksum += i;
   }
   const auto &const_non_empty_hamt = non_empty_hamt;

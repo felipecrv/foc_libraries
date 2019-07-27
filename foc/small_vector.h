@@ -930,9 +930,11 @@ inline void swap(foc::SmallVector<T, N> &lhs, foc::SmallVector<T, N> &rhs) {
 
 #ifdef SMALL_VECTOR_IMPLEMENTATION
 
+namespace foc {
+
 /// GrowPod - This is an implementation of the Grow() method which only works
 /// on POD-like datatypes and is out of line to reduce code duplication.
-void foc::SmallVectorBase::GrowPod(void *first_el, size_t min_size_in_bytes, size_t type_size) {
+void SmallVectorBase::GrowPod(void *first_el, size_t min_size_in_bytes, size_t type_size) {
   size_t cur_size_in_bytes = size_in_bytes();
   // Always grow
   size_t new_capacity_in_bytes = 2 * capacity_in_bytes() + type_size;
@@ -956,5 +958,7 @@ void foc::SmallVectorBase::GrowPod(void *first_el, size_t min_size_in_bytes, siz
   this->begin_p = new_elements;
   this->capacity_p = (char *)this->begin_p + new_capacity_in_bytes;
 }
+
+}  // namespace foc
 
 #endif  // SMALL_VECTOR_IMPLEMENTATION

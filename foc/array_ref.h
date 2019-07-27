@@ -10,6 +10,7 @@
 #include "small_vector.h"
 
 namespace foc {
+
 /// ArrayRef - Represent a constant reference to an array (0 or more elements
 /// consecutively in memory), i.e. a start pointer and a length.  It allows
 /// various APIs to take consecutive elements easily and conveniently.
@@ -376,4 +377,5 @@ template <typename T> hash_code hash_value(ArrayRef<T> S) {
   return hash_combine_range(S.begin(), S.end());
 }
 */
+
 }  // end namespace foc
