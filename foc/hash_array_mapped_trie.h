@@ -67,9 +67,9 @@ class BitmapTrieTemplate {
   BitmapTrieTemplate(const BitmapTrieTemplate &other) = delete;
   BitmapTrieTemplate(BitmapTrieTemplate &&other) = default;
 
-  ATTRIBUTE_ALWAYS_INLINE
+  FOC_ATTRIBUTE_ALWAYS_INLINE
   Node *allocate(Allocator &allocator, uint32_t capacity);
-  ATTRIBUTE_ALWAYS_INLINE
+  FOC_ATTRIBUTE_ALWAYS_INLINE
   void deallocate(Allocator &allocator);
 
   void cloneRecursively(Allocator &, BitmapTrieTemplate &root);
@@ -146,22 +146,22 @@ class NodeTemplate {
   } _either;
 
  public:
-  ATTRIBUTE_ALWAYS_INLINE
+  FOC_ATTRIBUTE_ALWAYS_INLINE
   explicit NodeTemplate(NodeTemplate *parent) { BitmapTrie(parent); }
-  ATTRIBUTE_ALWAYS_INLINE
+  FOC_ATTRIBUTE_ALWAYS_INLINE
   NodeTemplate(Entry &&entry, NodeTemplate *parent);
 
-  ATTRIBUTE_ALWAYS_INLINE
+  FOC_ATTRIBUTE_ALWAYS_INLINE
   NodeTemplate *BitmapTrie(NodeTemplate *parent);
-  ATTRIBUTE_ALWAYS_INLINE
+  FOC_ATTRIBUTE_ALWAYS_INLINE
   NodeTemplate *BitmapTrie(Allocator &allocator, NodeTemplate *parent, uint32_t capacity);
 
-  ATTRIBUTE_ALWAYS_INLINE
+  FOC_ATTRIBUTE_ALWAYS_INLINE
   NodeTemplate &operator=(NodeTemplate &&other);
-  ATTRIBUTE_ALWAYS_INLINE
+  FOC_ATTRIBUTE_ALWAYS_INLINE
   NodeTemplate &operator=(Entry &&other);
 
-  ATTRIBUTE_ALWAYS_INLINE
+  FOC_ATTRIBUTE_ALWAYS_INLINE
   NodeTemplate *setEntryParent(const NodeTemplate *parent);
 
   bool isEntry() const { return (uintptr_t)_parent & (uintptr_t)0x1U; }
@@ -674,7 +674,7 @@ class HashArrayMappedTrie {
     BitmapTrie *trie = &trie_node->asTrie();
 
     // Exhausted hash
-    if (UNLIKELY(shift >= 32)) {
+    if (FOC_UNLIKELY(shift >= 32)) {
       return insertHashCollidedEntry(trie_node, key, exists);
     }
 
@@ -826,7 +826,7 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertEntr
 
   uint32_t required = sz + 1;
   assert(required <= 32);
-  if (LIKELY(required <= _capacity)) {
+  if (FOC_LIKELY(required <= _capacity)) {
     for (int32_t j = (int32_t)sz; j > (int32_t)i; j--) {
       _base[j] = std::move(_base[j - 1]);
     }
@@ -839,7 +839,7 @@ NodeTemplate<Entry, Allocator> *BitmapTrieTemplate<Entry, Allocator>::insertEntr
       return nullptr;
     }
 
-    if (UNLIKELY(_base == nullptr)) {
+    if (FOC_UNLIKELY(_base == nullptr)) {
       assert(i == 0);
       _base = new_base;
       _capacity = alloc_size;

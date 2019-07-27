@@ -20,16 +20,16 @@
 #endif
 
 // Extend the default __GNUC_PREREQ even if glibc's features.h isn't available.
-#ifndef GNUC_PREREQ
+#ifndef FOC_GNUC_PREREQ
 # if defined(__GNUC__) && defined(__GNUC_MINOR__) && defined(__GNUC_PATCHLEVEL__)
-#  define GNUC_PREREQ(maj, min, patch) \
+#  define FOC_GNUC_PREREQ(maj, min, patch) \
     ((__GNUC__ << 20) + (__GNUC_MINOR__ << 10) + __GNUC_PATCHLEVEL__ >= \
      ((maj) << 20) + ((min) << 10) + (patch))
 # elif defined(__GNUC__) && defined(__GNUC_MINOR__)
-#  define GNUC_PREREQ(maj, min, patch) \
+#  define FOC_GNUC_PREREQ(maj, min, patch) \
     ((__GNUC__ << 20) + (__GNUC_MINOR__ << 10) >= ((maj) << 20) + ((min) << 10))
 # else
-#  define GNUC_PREREQ(maj, min, patch) 0
+#  define FOC_GNUC_PREREQ(maj, min, patch) 0
 # endif
 #endif
 
@@ -38,59 +38,59 @@
 //  * 1800: Microsoft Visual Studio 2013 / 12.0
 //  * 1900: Microsoft Visual Studio 2015 / 14.0
 #ifdef _MSC_VER
-# define MSC_PREREQ(version) (_MSC_VER >= (version))
+# define FOC_MSC_PREREQ(version) (_MSC_VER >= (version))
 #else
-# define MSC_PREREQ(version) 0
+# define FOC_MSC_PREREQ(version) 0
 #endif
 
-#if __has_feature(cxx_constexpr) || defined(__GXX_EXPERIMENTAL_CXX0X__) || MSC_PREREQ(1900)
+#if __has_feature(cxx_constexpr) || defined(__GXX_EXPERIMENTAL_CXX0X__) || FOC_MSC_PREREQ(1900)
 # define CONSTEXPR constexpr
 #else
 # define CONSTEXPR
 #endif
 
-// ATTRIBUTE_ALWAYS_INLINE - On compilers where we have a directive to do so,
-// mark a method "always inline" because it is performance sensitive. GCC 3.4
-// supported this but is buggy in various cases and produces unimplemented
+// FOC_ATTRIBUTE_ALWAYS_INLINE - On compilers where we have a directive to do
+// so, mark a method "always inline" because it is performance sensitive. GCC
+// 3.4 supported this but is buggy in various cases and produces unimplemented
 // errors, just use it in GCC 4.0 and later.
-#if __has_attribute(always_inline) || GNUC_PREREQ(4, 0, 0)
-# define ATTRIBUTE_ALWAYS_INLINE __attribute__((always_inline))
+#if __has_attribute(always_inline) || FOC_GNUC_PREREQ(4, 0, 0)
+# define FOC_ATTRIBUTE_ALWAYS_INLINE __attribute__((always_inline))
 #elif defined(_MSC_VER)
-# define ATTRIBUTE_ALWAYS_INLINE __forceinline
+# define FOC_ATTRIBUTE_ALWAYS_INLINE __forceinline
 #else
-# define ATTRIBUTE_ALWAYS_INLINE
+# define FOC_ATTRIBUTE_ALWAYS_INLINE
 #endif
 
-#if __has_attribute(returns_nonnull) || GNUC_PREREQ(4, 9, 0)
-# define ATTRIBUTE_RETURNS_NONNULL __attribute__((returns_nonnull))
+#if __has_attribute(returns_nonnull) || FOC_GNUC_PREREQ(4, 9, 0)
+# define FOC_ATTRIBUTE_RETURNS_NONNULL __attribute__((returns_nonnull))
 #elif defined(_MSC_VER)
-# define ATTRIBUTE_RETURNS_NONNULL _Ret_notnull_
+# define FOC_ATTRIBUTE_RETURNS_NONNULL _Ret_notnull_
 #else
-# define ATTRIBUTE_RETURNS_NONNULL
+# define FOC_ATTRIBUTE_RETURNS_NONNULL
 #endif
 
-// \macro ATTRIBUTE_RETURNS_NOALIAS Used to mark a function as returning a
+// \macro FOC_ATTRIBUTE_RETURNS_NOALIAS Used to mark a function as returning a
 // pointer that does not alias any other valid pointer.
 #ifdef __GNUC__
-# define ATTRIBUTE_RETURNS_NOALIAS __attribute__((__malloc__))
+# define FOC_ATTRIBUTE_RETURNS_NOALIAS __attribute__((__malloc__))
 #elif defined(_MSC_VER)
-# define ATTRIBUTE_RETURNS_NOALIAS __declspec(restrict)
+# define FOC_ATTRIBUTE_RETURNS_NOALIAS __declspec(restrict)
 #else
-# define ATTRIBUTE_RETURNS_NOALIAS
+# define FOC_ATTRIBUTE_RETURNS_NOALIAS
 #endif
 
-#if __has_attribute(used) || GNUC_PREREQ(3, 1, 0)
-# define ATTRIBUTE_USED __attribute__((__used__))
+#if __has_attribute(used) || FOC_GNUC_PREREQ(3, 1, 0)
+# define FOC_ATTRIBUTE_USED __attribute__((__used__))
 #else
-# define ATTRIBUTE_USED
+# define FOC_ATTRIBUTE_USED
 #endif
 
-#if __has_attribute(warn_unused_result) || GNUC_PREREQ(3, 4, 0)
-# define ATTRIBUTE_UNUSED_RESULT __attribute__((__warn_unused_result__))
+#if __has_attribute(warn_unused_result) || FOC_GNUC_PREREQ(3, 4, 0)
+# define FOC_ATTRIBUTE_UNUSED_RESULT __attribute__((__warn_unused_result__))
 #elif defined(_MSC_VER)
-# define ATTRIBUTE_UNUSED_RESULT _Check_return_
+# define FOC_ATTRIBUTE_UNUSED_RESULT _Check_return_
 #else
-# define ATTRIBUTE_UNUSED_RESULT
+# define FOC_ATTRIBUTE_UNUSED_RESULT
 #endif
 
 // Some compilers warn about unused functions. When a function is sometimes
@@ -101,38 +101,38 @@
 // more portable solution:
 //   (void)unused_var_name;
 // Prefer cast-to-void wherever it is sufficient.
-#if __has_attribute(unused) || GNUC_PREREQ(3, 1, 0)
-# define ATTRIBUTE_UNUSED __attribute__((__unused__))
+#if __has_attribute(unused) || FOC_GNUC_PREREQ(3, 1, 0)
+# define FOC_ATTRIBUTE_UNUSED __attribute__((__unused__))
 #else
-# define ATTRIBUTE_UNUSED
+# define FOC_ATTRIBUTE_UNUSED
 #endif
 
-#if __has_builtin(__builtin_expect) || GNUC_PREREQ(4, 0, 0)
-# define LIKELY(EXPR) __builtin_expect((bool)(EXPR), true)
-# define UNLIKELY(EXPR) __builtin_expect((bool)(EXPR), false)
+#if __has_builtin(__builtin_expect) || FOC_GNUC_PREREQ(4, 0, 0)
+# define FOC_LIKELY(EXPR) __builtin_expect((bool)(EXPR), true)
+# define FOC_UNLIKELY(EXPR) __builtin_expect((bool)(EXPR), false)
 #else
-# define LIKELY(EXPR) (EXPR)
-# define UNLIKELY(EXPR) (EXPR)
+# define FOC_LIKELY(EXPR) (EXPR)
+# define FOC_UNLIKELY(EXPR) (EXPR)
 #endif
 
-// MEMORY_SANITIZER_BUILD
+// FOC_MEMORY_SANITIZER_BUILD
 // If built with MemorySanitizer instrumentation.
 #if __has_feature(memory_sanitizer)
-# define MEMORY_SANITIZER_BUILD 1
+# define FOC_MEMORY_SANITIZER_BUILD 1
 # include <sanitizer/msan_interface.h>
 #else
-# define MEMORY_SANITIZER_BUILD 0
+# define FOC_MEMORY_SANITIZER_BUILD 0
 # define __msan_allocated_memory(p, size)
 # define __msan_unpoison(p, size)
 #endif
 
-// ADDRESS_SANITIZER_BUILD
+// FOC_ADDRESS_SANITIZER_BUILD
 // If built with AddressSanitizer instrumentation.
 #if __has_feature(address_sanitizer) || defined(__SANITIZE_ADDRESS__)
-# define ADDRESS_SANITIZER_BUILD 1
+# define FOC_ADDRESS_SANITIZER_BUILD 1
 # include <sanitizer/asan_interface.h>
 #else
-# define ADDRESS_SANITIZER_BUILD 0
+# define FOC_ADDRESS_SANITIZER_BUILD 0
 # define __asan_poison_memory_region(p, size)
 # define __asan_unpoison_memory_region(p, size)
 #endif

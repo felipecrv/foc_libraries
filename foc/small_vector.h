@@ -90,13 +90,13 @@ class SmallVectorTemplateCommon : public SmallVectorBase {
   typedef const T *const_pointer;
 
   // forward iterator creation methods.
-  ATTRIBUTE_ALWAYS_INLINE
+  FOC_ATTRIBUTE_ALWAYS_INLINE
   iterator begin() { return (iterator)this->begin_p; }
-  ATTRIBUTE_ALWAYS_INLINE
+  FOC_ATTRIBUTE_ALWAYS_INLINE
   const_iterator begin() const { return (const_iterator)this->begin_p; }
-  ATTRIBUTE_ALWAYS_INLINE
+  FOC_ATTRIBUTE_ALWAYS_INLINE
   iterator end() { return (iterator)this->end_p; }
-  ATTRIBUTE_ALWAYS_INLINE
+  FOC_ATTRIBUTE_ALWAYS_INLINE
   const_iterator end() const { return (const_iterator)this->end_p; }
 
  protected:
@@ -110,7 +110,7 @@ class SmallVectorTemplateCommon : public SmallVectorBase {
   reverse_iterator rend() { return reverse_iterator(begin()); }
   const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
 
-  ATTRIBUTE_ALWAYS_INLINE
+  FOC_ATTRIBUTE_ALWAYS_INLINE
   size_type size() const { return end() - begin(); }
   size_type max_size() const { return size_type(-1) / sizeof(T); }
 
@@ -122,12 +122,12 @@ class SmallVectorTemplateCommon : public SmallVectorBase {
   /// Return a pointer to the vector's buffer, even if empty().
   const_pointer data() const { return const_pointer(begin()); }
 
-  ATTRIBUTE_ALWAYS_INLINE
+  FOC_ATTRIBUTE_ALWAYS_INLINE
   reference operator[](size_type idx) {
     assert(idx < size());
     return begin()[idx];
   }
-  ATTRIBUTE_ALWAYS_INLINE
+  FOC_ATTRIBUTE_ALWAYS_INLINE
   const_reference operator[](size_type idx) const {
     assert(idx < size());
     return begin()[idx];
@@ -187,7 +187,7 @@ class SmallVectorTemplateBase : public SmallVectorTemplateCommon<T> {
 
  public:
   void push_back(const T &element) {
-    if (UNLIKELY(this->end_p >= this->capacity_p)) {
+    if (FOC_UNLIKELY(this->end_p >= this->capacity_p)) {
       this->Grow();
     }
     ::new ((void *)this->end()) T(element);
@@ -195,7 +195,7 @@ class SmallVectorTemplateBase : public SmallVectorTemplateCommon<T> {
   }
 
   void push_back(T &&element) {
-    if (UNLIKELY(this->end_p >= this->capacity_p)) {
+    if (FOC_UNLIKELY(this->end_p >= this->capacity_p)) {
       this->Grow();
     }
     ::new ((void *)this->end()) T(::std::move(element));
@@ -286,7 +286,7 @@ class SmallVectorTemplateBase<T, true> : public SmallVectorTemplateCommon<T> {
 
  public:
   void push_back(const T &element) {
-    if (UNLIKELY(this->end_p >= this->capacity_p)) {
+    if (FOC_UNLIKELY(this->end_p >= this->capacity_p)) {
       this->Grow();
     }
     memcpy(this->end(), &element, sizeof(T));
@@ -364,7 +364,7 @@ class SmallVectorImpl : public SmallVectorTemplateBase<T, isPodLike<T>::value> {
     }
   }
 
-  ATTRIBUTE_UNUSED_RESULT T pop_back_val() {
+  FOC_ATTRIBUTE_UNUSED_RESULT T pop_back_val() {
     T Result = ::std::move(this->back());
     this->pop_back();
     return Result;
@@ -621,7 +621,7 @@ class SmallVectorImpl : public SmallVectorTemplateBase<T, isPodLike<T>::value> {
 
   template <typename... ArgTypes>
   void emplace_back(ArgTypes &&... Args) {
-    if (UNLIKELY(this->end_p >= this->capacity_p)) {
+    if (FOC_UNLIKELY(this->end_p >= this->capacity_p)) {
       this->Grow();
     }
     ::new ((void *)this->end()) T(std::forward<ArgTypes>(Args)...);

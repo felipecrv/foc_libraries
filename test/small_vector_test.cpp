@@ -21,7 +21,7 @@ using foc::SmallVectorImpl;
 using foc::Constructable;
 using foc::NonCopyable;
 
-ATTRIBUTE_USED void CompileTest() {
+FOC_ATTRIBUTE_USED void CompileTest() {
   SmallVector<NonCopyable, 0> v;
   v.resize(42);
 }

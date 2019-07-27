@@ -89,7 +89,7 @@ class Constructable {
     return c0.getValue() == c1.getValue();
   }
 
-  friend bool ATTRIBUTE_UNUSED operator!=(const Constructable &c0, const Constructable &c1) {
+  friend bool FOC_ATTRIBUTE_UNUSED operator!=(const Constructable &c0, const Constructable &c1) {
     return c0.getValue() != c1.getValue();
   }
 };
