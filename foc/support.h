@@ -340,7 +340,7 @@ constexpr inline bool is_power_of2_64(uint64_t value) { return value && !(value 
 //
 // alignment should be a power of two.  This method rounds up, so
 // alignAddr(7, 4) == 8 and alignAddr(8, 4) == 8.
-inline uintptr_t align_addr(const void *addr, size_t alignment) {
+inline uintptr_t align_addr(const void* addr, size_t alignment) {
   assert(alignment && is_power_of2_64((uint64_t)alignment) && "alignment is not a power of two!");
 
   assert((uintptr_t)addr + alignment - 1 >= (uintptr_t)addr);
@@ -350,7 +350,7 @@ inline uintptr_t align_addr(const void *addr, size_t alignment) {
 
 /// \brief Returns the necessary adjustment for aligning ptr to alignment
 /// bytes, rounding up.
-inline size_t alignment_adjustment(const void *ptr, size_t alignment) {
+inline size_t alignment_adjustment(const void* ptr, size_t alignment) {
   return align_addr(ptr, alignment) - (uintptr_t)ptr;
 }
 
