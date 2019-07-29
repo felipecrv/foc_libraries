@@ -277,6 +277,10 @@
 # define FOC_UNLIKELY(EXPR) (EXPR)
 #endif
 
+#define FOC_DISALLOW_COPY_AND_ASSIGN(TypeName) \
+  TypeName(const TypeName&) = delete;          \
+  TypeName& operator=(const TypeName&) = delete
+
 // FOC_MEMORY_SANITIZER_BUILD
 // If built with MemorySanitizer instrumentation.
 #if __has_feature(memory_sanitizer)
