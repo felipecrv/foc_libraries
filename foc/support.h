@@ -201,6 +201,16 @@
 # define CONSTEXPR
 #endif
 
+// FOC_ATTRIBUTE_NOINLINE - On compilers where we have a directive to do so,
+// mark a method "not for inlining".
+#if __has_attribute(noinline) || FOC_GNUC_PREREQ(3, 4, 0)
+# define FOC_ATTRIBUTE_NOINLINE __attribute__((noinline))
+#elif defined(_MSC_VER)
+# define FOC_ATTRIBUTE_NOINLINE __declspec(noinline)
+#else
+# define FOC_ATTRIBUTE_NOINLINE
+#endif
+
 // FOC_ATTRIBUTE_ALWAYS_INLINE - On compilers where we have a directive to do
 // so, mark a method "always inline" because it is performance sensitive. GCC
 // 3.4 supported this but is buggy in various cases and produces unimplemented
