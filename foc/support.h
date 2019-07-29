@@ -1,8 +1,80 @@
+// Copyright 2019 Felipe Oliveira Carvalho
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Copyright 2015 The Chromium Authors. All rights reserved.
 #pragma once
 
-#include <cassert>
+#include <assert.h>
 
 // clang-format off
+
+// A set of macros to use for platform detection.
+#if defined(ANDROID)
+# define FOC_OS_ANDROID 1
+#elif defined(__APPLE__)
+// only include TargetConditions after testing ANDROID as some android builds
+// on mac don't have this header available and it's not needed unless the target
+// is really mac/ios.
+# include <TargetConditionals.h>
+# define FOC_OS_MACOSX 1
+# define FOC_OS_MACOS 1
+# if defined(FOC_TARGET_OS_IPHONE) && FOC_TARGET_OS_IPHONE
+#  define FOC_OS_IOS 1
+# endif  // defined(FOC_TARGET_OS_IPHONE) && FOC_TARGET_OS_IPHONE
+#elif defined(__linux__)
+# define FOC_OS_LINUX 1
+#elif defined(_WIN32)
+# define FOC_OS_WIN 1
+#elif defined(__Fuchsia__)
+# define FOC_OS_FUCHSIA 1
+#elif defined(__FreeBSD__)
+# define FOC_OS_FREEBSD 1
+#elif defined(__NetBSD__)
+# define FOC_OS_NETBSD 1
+#elif defined(__OpenBSD__)
+# define FOC_OS_OPENBSD 1
+#elif defined(__sun)
+# define FOC_OS_SOLARIS 1
+#elif defined(__QNXNTO__)
+# define FOC_OS_QNX 1
+#elif defined(_AIX)
+# define FOC_OS_AIX 1
+#elif defined(__asmjs__)
+# define FOC_OS_ASMJS
+#else
+# error Please add support for your platform in support.h
+#endif
+
+// For access to standard BSD features, use FOC_OS_BSD instead of a
+// more specific macro.
+#if defined(FOC_OS_FREEBSD) || defined(FOC_OS_NETBSD) || defined(FOC_OS_OPENBSD)
+# define FOC_OS_BSD 1
+#endif
+
+// For access to standard POSIXish features, use FOC_OS_POSIX instead of a
+// more specific macro.
+#if defined(FOC_OS_AIX) || defined(FOC_OS_ANDROID) || defined(FOC_OS_ASMJS) ||    \
+    defined(FOC_OS_FREEBSD) || defined(FOC_OS_LINUX) || defined(FOC_OS_MACOS) || \
+    defined(FOC_OS_NACL) || defined(FOC_OS_NETBSD) || defined(FOC_OS_OPENBSD) ||  \
+    defined(FOC_OS_QNX) || defined(FOC_OS_SOLARIS)
+# define FOC_OS_POSIX 1
+#endif
+
+#if defined(FOC_OS_POSIX)
+# include <errno.h>
+#endif
+
 #ifndef __has_feature
 # define __has_feature(x) 0
 #endif
