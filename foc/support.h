@@ -172,6 +172,7 @@
 // Extend the default __GNUC_PREREQ even if glibc's features.h isn't available.
 #ifndef FOC_GNUC_PREREQ
 # if defined(__GNUC__) && defined(__GNUC_MINOR__) && defined(__GNUC_PATCHLEVEL__)
+#  define FOC_COMPILER_GCC 1
 #  define FOC_GNUC_PREREQ(maj, min, patch) \
     ((__GNUC__ << 20) + (__GNUC_MINOR__ << 10) + __GNUC_PATCHLEVEL__ >= \
      ((maj) << 20) + ((min) << 10) + (patch))
@@ -188,6 +189,7 @@
 //  * 1800: Microsoft Visual Studio 2013 / 12.0
 //  * 1900: Microsoft Visual Studio 2015 / 14.0
 #ifdef _MSC_VER
+# define FOC_COMPILER_MSVC 1
 # define FOC_MSC_PREREQ(version) (_MSC_VER >= (version))
 #else
 # define FOC_MSC_PREREQ(version) 0
