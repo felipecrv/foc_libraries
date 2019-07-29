@@ -70,7 +70,7 @@ class ArrayRef {
 
   /// Construct an ArrayRef from a C array.
   template <size_t N>
-  /*implicit*/ CONSTEXPR ArrayRef(const T (&arr)[N]) : _data(arr), length(N) {}
+  /*implicit*/ constexpr ArrayRef(const T (&arr)[N]) : _data(arr), length(N) {}
 
   /// Construct an ArrayRef from a std::initializer_list.
   /*implicit*/ ArrayRef(const std::initializer_list<T> &vec)
@@ -234,7 +234,7 @@ class MutableArrayRef : public ArrayRef<T> {
 
   /// Construct an MutableArrayRef from a C array.
   template <size_t N>
-  /*implicit*/ CONSTEXPR MutableArrayRef(T (&arr)[N]) : ArrayRef<T>(arr) {}
+  /*implicit*/ constexpr MutableArrayRef(T (&arr)[N]) : ArrayRef<T>(arr) {}
 
   T *data() const { return const_cast<T *>(ArrayRef<T>::data()); }
 

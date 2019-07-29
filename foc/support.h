@@ -195,12 +195,6 @@
 # define FOC_MSC_PREREQ(version) 0
 #endif
 
-#if __has_feature(cxx_constexpr) || defined(__GXX_EXPERIMENTAL_CXX0X__) || FOC_MSC_PREREQ(1900)
-# define CONSTEXPR constexpr
-#else
-# define CONSTEXPR
-#endif
-
 // FOC_ATTRIBUTE_NOINLINE - On compilers where we have a directive to do so,
 // mark a method "not for inlining".
 #if __has_attribute(noinline) || FOC_GNUC_PREREQ(3, 4, 0)
