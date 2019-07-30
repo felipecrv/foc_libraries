@@ -16,6 +16,7 @@
 #pragma once
 
 #include <assert.h>
+#include <utility>
 
 // A set of macros to use for OS, architecture, and compiler
 // detection/configuration.
@@ -74,8 +75,9 @@
 # define FOC_OS_POSIX 1
 #endif
 
-#if defined(FOC_OS_POSIX)
+#if defined(FOC_OS_POSIX) || defined(FOC_OS_FUCHSIA)
 # include <errno.h>
+# include <time.h>
 #endif
 
 // Processor architecture detection.  For more info on what's defined, see:
@@ -364,6 +366,114 @@ inline uint64_t next_power_of_2(uint64_t x) {
   x |= (x >> 16);
   x |= (x >> 32);
   return x + 1;
+}
+
+// A wrapper that makes it easy to create an object of type T with static
+// storage duration that:
+// - is only constructed on first access
+// - never invokes the destructor
+// in order to satisfy the styleguide ban on global constructors and
+// destructors.
+//
+// Runtime constant example:
+// const std::string& GetLineSeparator() {
+//  // Forwards to std::string(size_t, char, const Allocator&) constructor.
+//   static const base::NoDestructor<std::string> s(5, '-');
+//   return *s;
+// }
+//
+// More complex initialization with a lambda:
+// const std::string& GetSessionNonce() {
+//   static const base::NoDestructor<std::string> nonce([] {
+//     std::string s(16);
+//     crypto::RandString(s.data(), s.size());
+//     return s;
+//   }());
+//   return *nonce;
+// }
+//
+// NoDestructor<T> stores the object inline, so it also avoids a pointer
+// indirection and a malloc. Also note that since C++11 static local variable
+// initialization is thread-safe and so is this pattern. Code should prefer to
+// use NoDestructor<T> over:
+// - A function scoped static T* or T& that is dynamically initialized.
+// - A global base::LazyInstance<T>.
+//
+// Note that since the destructor is never run, this *will* leak memory if used
+// as a stack or member variable. Furthermore, a NoDestructor<T> should never
+// have global scope as that may require a static initializer.
+template <typename T>
+class NoDestructor {
+ public:
+  // Not constexpr; just write static constexpr T x = ...; if the value should
+  // be a constexpr.
+  template <typename... Args>
+  explicit NoDestructor(Args&&... args) {
+    new (storage_) T(std::forward<Args>(args)...);
+  }
+
+  // Allows copy and move construction of the contained type, to allow
+  // construction from an initializer list, e.g. for std::vector.
+  explicit NoDestructor(const T& x) { new (storage_) T(x); }
+  explicit NoDestructor(T&& x) { new (storage_) T(std::move(x)); }
+
+  NoDestructor(const NoDestructor&) = delete;
+  NoDestructor& operator=(const NoDestructor&) = delete;
+
+  ~NoDestructor() = default;
+
+  const T& operator*() const { return *get(); }
+  T& operator*() { return *get(); }
+
+  const T* operator->() const { return get(); }
+  T* operator->() { return get(); }
+
+  const T* get() const { return reinterpret_cast<const T*>(storage_); }
+  T* get() { return reinterpret_cast<T*>(storage_); }
+
+ private:
+  alignas(T) char storage_[sizeof(T)];
+
+#if defined(FOC_MEMORY_SANITIZER_BUILD)
+  // TODO(https://crbug.com/812277): This is a hack to work around the fact
+  // that LSan doesn't seem to treat NoDestructor as a root for reachability
+  // analysis. This means that code like this:
+  //   static base::NoDestructor<std::vector<int>> v({1, 2, 3});
+  // is considered a leak. Using the standard leak sanitizer annotations to
+  // suppress leaks doesn't work: std::vector is implicitly constructed before
+  // calling the base::NoDestructor constructor.
+  //
+  // Unfortunately, I haven't been able to demonstrate this issue in simpler
+  // reproductions: until that's resolved, hold an explicit pointer to the
+  // placement-new'd object in leak sanitizer mode to help LSan realize that
+  // objects allocated by the contained type are still reachable.
+  T* storage_ptr_ = reinterpret_cast<T*>(storage_);
+#endif  // defined(FOC_MEMORY_SANITIZER_BUILD)
+};
+
+inline void sleep(int64_t duration_ms) {
+#if defined(FOC_OS_POSIX)
+  struct timespec sleep_time;
+
+  // Break the duration into seconds and nanoseconds.
+  // NOTE: duration_ms is int64 while timespec's nanoseconds are longs,
+  // so this unpacking must prevent overflow.
+  sleep_time.tv_sec = duration_ms / 1000;
+  duration_ms -= static_cast<int64_t>(sleep_time.tv_sec) * 1000;
+  sleep_time.tv_nsec = duration_ms * 1000;  // nanoseconds
+
+  struct timespec remaining;
+  while (nanosleep(&sleep_time, &remaining) == -1 && errno == EINTR) {
+    sleep_time = remaining;
+  }
+#elif defined(FOC_OS_WIN)
+  // When measured with a high resolution clock, Sleep() sometimes returns much
+  // too early. We may need to call it repeatedly to get the desired duration.
+  /* TimeTicks end = TimeTicks::Now() + duration; */
+  /* for (TimeTicks now = TimeTicks::Now(); now < end; now = TimeTicks::Now()) */
+  /*   ::Sleep(static_cast<DWORD>((end - now).InMillisecondsRoundedUp())); */
+  ::Sleep(duration_ms);
+#endif
 }
 
 }  // namespace foc
