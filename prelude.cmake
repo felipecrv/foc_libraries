@@ -70,6 +70,9 @@ else()
   if(CXX_HAS_WIMPLICIT_FALLTHROUGH_FLAG)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wimplicit-fallthrough")
   endif()
+
+  # Allow for __VA_ARGS__
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-gnu-zero-variadic-macro-arguments")
 endif()
 
 if(MINGW)
